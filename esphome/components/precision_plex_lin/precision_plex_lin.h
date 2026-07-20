@@ -173,6 +173,11 @@ class PrecisionPlexLinComponent : public Component {
     add_int_or_null_(out, first, "lp_gas_level", s.telemetry.propane_percent);
     add_string_(out, first, "generator_status", s.telemetry.generator_state);
     add_uint_(out, first, "generator_runtime_tenths_digit", s.telemetry.generator_runtime_tenths_digit);
+    add_bool_(out, first, "generator_runtime_valid", s.telemetry.generator_runtime_valid);
+    if (s.telemetry.generator_runtime_valid) {
+      add_uint_(out, first, "generator_runtime_tenths", s.telemetry.generator_runtime_tenths);
+      add_float_(out, first, "generator_runtime_hours", s.telemetry.generator_runtime_tenths / 10.0f);
+    }
 
     add_bool_(out, first, "generator_running", s.outputs.generator_running_bit || s.telemetry.generator_state == "running");
     add_bool_(out, first, "awning_light", s.outputs.awning_light);

@@ -77,28 +77,34 @@ class BADecoder {
   void decode_generator_page_(const Frame &f, uint8_t page) {
     uint8_t high = (page >> 4) & 0x0F;
     uint8_t low = page & 0x0F;
+    uint32_t runtime_tenths = 0;
+    const bool runtime_valid = decode_runtime_tenths_(f, low, runtime_tenths);
 
     CoachState &state = coach_state();
+    const bool runtime_changed =
+        state.telemetry.generator_runtime_valid != runtime_valid ||
+        (runtime_valid && state.telemetry.generator_runtime_tenths != runtime_tenths);
     state.pidba_last_frame = raw_string(f);
     state.telemetry.valid = true;
     state.telemetry.last_seen_ms = millis();
     state.telemetry.generator_state_raw = high;
     state.telemetry.generator_state = generator_state_from_nibble(high);
     state.telemetry.generator_runtime_tenths_digit = low;
+    state.telemetry.generator_runtime_valid = runtime_valid;
+    if (runtime_valid) state.telemetry.generator_runtime_tenths = runtime_tenths;
     state.telemetry.raw_frame = raw_string(f);
 
-    if (!have_generator_page_ || page != last_generator_page_) {
+    if (!have_generator_page_ || page != last_generator_page_ || runtime_changed) {
       state.telemetry.revision++;
       uint8_t old_high = (last_generator_page_ >> 4) & 0x0F;
-      uint8_t old_low = last_generator_page_ & 0x0F;
 
       ESP_LOGI(
         "GENERATOR_STATE",
-        "State: %s -> %s | runtime tenths digit: %u -> %u | page=%02X raw=%s",
+        "State: %s -> %s | runtime: %s%.1fh | page=%02X raw=%s",
         have_generator_page_ ? generator_state_(old_high) : "Unknown",
         generator_state_(high),
-        have_generator_page_ ? old_low : 0,
-        low,
+        runtime_valid ? "" : "invalid/",
+        runtime_valid ? runtime_tenths / 10.0f : 0.0f,
         page,
         raw_string(f).c_str()
       );
@@ -106,6 +112,28 @@ class BADecoder {
       last_generator_page_ = page;
       have_generator_page_ = true;
     }
+  }
+
+  bool decode_runtime_tenths_(const Frame &f, uint8_t tenths_digit,
+                              uint32_t &runtime_tenths) {
+    // PIDBA data bytes 1-3 are a little-endian packed-BCD whole-hour
+    // counter. For example 25 01 00 plus page low nibble 4 is 125.4 h.
+    if (tenths_digit > 9) return false;
+
+    uint32_t whole_hours = 0;
+    uint32_t multiplier = 1;
+    for (int index = 4; index <= 6; index++) {
+      const uint8_t packed = f.bytes[index];
+      const uint8_t ones = packed & 0x0F;
+      const uint8_t tens = (packed >> 4) & 0x0F;
+      if (ones > 9 || tens > 9) return false;
+      whole_hours += static_cast<uint32_t>(ones) * multiplier;
+      multiplier *= 10;
+      whole_hours += static_cast<uint32_t>(tens) * multiplier;
+      multiplier *= 10;
+    }
+    runtime_tenths = whole_hours * 10 + tenths_digit;
+    return true;
   }
 
   void decode_coach_telemetry_(const Frame &f, uint8_t page) {
@@ -167,13 +195,14 @@ class BADecoder {
     }
 
     // Unknown BA telemetry payload fields only. Known:
+    // b4-b6 = Generator whole runtime hours (little-endian packed BCD)
     // b7 = House Battery
     // b8 high = LP
     // b8 low = Fresh
     // b9 high = Black
     // b9 low = Grey
     for (int i = 4; i <= 10; i++) {
-      if (i == 7 || i == 8 || i == 9) continue;
+      if (i >= 4 && i <= 9) continue;
 
       uint8_t oldv = last_telem_[i];
       uint8_t newv = f.bytes[i];

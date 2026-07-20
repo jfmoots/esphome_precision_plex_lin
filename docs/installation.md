@@ -18,7 +18,7 @@
 3. Create `secrets.yaml` using `secrets.example.yaml` as the template.
 4. Review the UART and GPIO25 wiring before compiling.
 
-The example pins the external component to `v0.6.1`. Keep production systems
+The example pins the external component to `v0.6.2`. Keep production systems
 on a release tag instead of `main` so later repository changes cannot silently
 alter a known-good build.
 

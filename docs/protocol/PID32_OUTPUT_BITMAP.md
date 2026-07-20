@@ -18,7 +18,7 @@ PID32 reports coach output state bits. It is the primary feedback source for non
 | Byte 2 | `0x04` | Wardrobe Slide Extend |
 | Byte 2 | `0x08` | Bedroom Slide Retract |
 | Byte 2 | `0x10` | Bedroom Slide Extend |
-| Byte 5 | `0x40` | Generator Running |
+| Byte 6 | `0x40` | Generator Running |
 
 ## Notes
 

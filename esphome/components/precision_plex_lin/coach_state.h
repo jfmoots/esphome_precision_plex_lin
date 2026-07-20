@@ -67,6 +67,8 @@ struct CoachTelemetryState {
   std::string generator_state = "unknown";
   uint8_t generator_state_raw = 0;
   uint8_t generator_runtime_tenths_digit = 0;
+  bool generator_runtime_valid = false;
+  uint32_t generator_runtime_tenths = 0;
   std::string raw_frame;
 };
 
@@ -284,6 +286,17 @@ inline std::string describe_generator_diff(const CoachTelemetryState &before, co
   append_generator_diff(out, "generator_state", before.generator_state, after.generator_state);
   append_generator_byte_diff(out, "gen_state_raw", before.generator_state_raw, after.generator_state_raw);
   append_generator_byte_diff(out, "runtime_tenths", before.generator_runtime_tenths_digit, after.generator_runtime_tenths_digit);
+  if (before.generator_runtime_valid != after.generator_runtime_valid ||
+      before.generator_runtime_tenths != after.generator_runtime_tenths) {
+    if (!out.empty()) out += "; ";
+    char part[80];
+    snprintf(part, sizeof(part), "runtime_total %s%lu->%s%lu",
+             before.generator_runtime_valid ? "" : "invalid/",
+             static_cast<unsigned long>(before.generator_runtime_tenths),
+             after.generator_runtime_valid ? "" : "invalid/",
+             static_cast<unsigned long>(after.generator_runtime_tenths));
+    out += part;
+  }
   if (out.empty()) return "no PIDBA generator change observed";
   return out;
 }

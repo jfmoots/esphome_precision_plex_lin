@@ -1,12 +1,10 @@
 # Unknown / Auxiliary PIDs
 
-## Open investigation: complete generator runtime
+## Validation watch: generator runtime rollover
 
-PIDBA currently exposes the generator state in the page high nibble and only
-the runtime tenths digit in the page low nibble. Capture and correlate all LIN
-PIDs across known displayed-runtime increments to locate the remaining runtime
-digits or counter. Include the `x.9` to next-hour rollover and test for
-multi-frame, packed-BCD, binary-counter, and rolling-page encodings.
+PIDBA now decodes the complete generator runtime from data bytes 1-3 and the
+page low nibble. The `125.4` LIN value exactly matched Bluetooth. Capture the
+future `125.9 -> 126.0` rollover to validate the whole-hour carry behavior.
 
 ## PID76
 

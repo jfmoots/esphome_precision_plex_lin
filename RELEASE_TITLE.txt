@@ -1,1 +1,1 @@
-ESPHome Precision Plex LIN v0.6.1 — Change-Driven Snapshot Delivery
+ESPHome Precision Plex LIN v0.6.2 — Complete Generator Runtime Telemetry

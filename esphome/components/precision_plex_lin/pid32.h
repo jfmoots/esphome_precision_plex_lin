@@ -14,7 +14,7 @@ class PID32Decoder {
     uint8_t b3 = f.bytes[3];
     uint8_t b4 = f.bytes[4];
     uint8_t b5 = f.bytes[5];
-    uint8_t b8 = f.bytes[8];
+    uint8_t b9 = f.bytes[9];
 
     state.outputs.valid = true;
     state.outputs.last_seen_ms = millis();
@@ -31,7 +31,8 @@ class PID32Decoder {
     state.outputs.bedroom_slide_retract = b5 & 0x08;
     state.outputs.wardrobe_slide_retract = b5 & 0x02;
     state.outputs.wardrobe_slide_extend = b5 & 0x04;
-    state.outputs.generator_running_bit = b8 & 0x40;
+    // LIN data byte 6 is frame index 9 (after sync, PID, and data bytes 0-5).
+    state.outputs.generator_running_bit = b9 & 0x40;
     state.outputs.raw_frame = raw;
 
     const std::string payload = payload_string(f);
@@ -56,7 +57,7 @@ class PID32Decoder {
       onoff(state.outputs.wardrobe_slide_retract), onoff(state.outputs.wardrobe_slide_extend)
     );
 
-    ESP_LOGI("GENERATOR", "RunningBit=%s b8=0x%02X", onoff(state.outputs.generator_running_bit), b8);
+    ESP_LOGI("GENERATOR", "RunningBit=%s data6=0x%02X", onoff(state.outputs.generator_running_bit), b9);
   }
 
  private:

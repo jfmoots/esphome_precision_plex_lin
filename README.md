@@ -12,7 +12,7 @@ being characterized.
 
 ## Current release
 
-**v0.6.1**, based on field-tested LIN Analyzer **Build 013.1**.
+**v0.6.2**, based on field-tested LIN Analyzer **Build 013.1**.
 
 Current telemetry includes:
 
@@ -26,7 +26,9 @@ Current telemetry includes:
 - AC/converter and ignition flags
 - Independent per-source freshness in the event contract
 
-Full generator runtime decoding remains an open investigation.
+PIDBA now publishes the complete generator runtime using validated packed BCD.
+The observed `125.4` LIN value matches Bluetooth; the next whole-hour rollover
+will provide final field confirmation of the carry behavior.
 
 ## Installation
 
@@ -43,7 +45,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.1
+      ref: v0.6.2
       path: esphome/components
     components:
       - precision_plex_lin

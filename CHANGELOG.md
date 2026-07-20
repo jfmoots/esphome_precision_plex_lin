@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.6.2 - Complete Generator Runtime Telemetry
+
+- Decodes the PIDBA whole-hour counter from data bytes 1-3 as little-endian
+  packed BCD and combines it with the page low-nibble tenths digit.
+- Rejects runtime frames containing any invalid BCD digit.
+- Publishes `generator_runtime_tenths`, `generator_runtime_hours`, and an
+  explicit validity flag in the LIN snapshot.
+- Corrects the PID32 generator-running bit from data byte 5 to data byte 6.
+- Records `125.4` as the Bluetooth-correlated result while retaining the
+  `125.9 -> 126.0` rollover as final carry validation.
+
 ## v0.6.1 - Change-Driven Snapshot Delivery
 
 - Emits a snapshot immediately when PID32 outputs, PIDBA coach telemetry,
