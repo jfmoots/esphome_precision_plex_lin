@@ -29,7 +29,7 @@ esphome/
       ec.h                     Coach power flags
       pid1f.h                  Touchscreen command learner
       scheduler.h              Auxiliary scheduler decoding
-      protocol.h               Frame and checksum helpers
+      protocol.h               Frame, checksum, and targeted log includes
 
   examples/
     precision_plex_lin_analyzer.yaml

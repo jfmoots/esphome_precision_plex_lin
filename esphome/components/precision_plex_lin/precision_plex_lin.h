@@ -8,7 +8,7 @@
 #include "version.h"
 
 namespace esphome {
-namespace precision_plex {
+namespace precision_plex_lin {
 
 class PrecisionPlexLinComponent : public Component {
  public:
@@ -53,5 +53,5 @@ class PrecisionPlexLinComponent : public Component {
   uart::UARTComponent *uart_parent_{nullptr};
 };
 
-}  // namespace precision_plex
+}  // namespace precision_plex_lin
 }  // namespace esphome

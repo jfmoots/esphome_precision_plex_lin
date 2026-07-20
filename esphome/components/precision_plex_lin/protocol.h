@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 #include <cstring>
-#include "esphome.h"
+#include "esphome/core/log.h"
 
 namespace precision_plex {
 

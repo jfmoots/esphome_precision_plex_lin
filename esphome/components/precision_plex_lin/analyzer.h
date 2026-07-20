@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include "esphome/components/uart/uart.h"
 #include "protocol.h"
 #include "coach_state.h"
 #include "scheduler.h"
@@ -449,7 +450,7 @@ class Analyzer {
     delayMicroseconds(100);
     release_wireless_tp_mute_("PID5E fast TX complete");
 
-    ESP_LOGW("LIN_TX", "PID5E FAST response #%u: %s", state.lin_tx_count, attempt);
+    ESP_LOGW("LIN_TX", "PID5E FAST response #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
     pending_pid5e_slot_tx_ = false;
     return true;
   }
@@ -491,7 +492,7 @@ class Analyzer {
     uart->write_array(response, sizeof(response));
     uart->flush();
 
-    ESP_LOGW("LIN_TX", "PID1F slot response #%u: %s", state.lin_tx_count, attempt);
+    ESP_LOGW("LIN_TX", "PID1F slot response #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
     pending_slot_tx_ = false;
   }
 
@@ -532,7 +533,7 @@ class Analyzer {
     delayMicroseconds(100);
     release_wireless_tp_mute_("PID5E parser fallback TX complete");
 
-    ESP_LOGW("LIN_TX", "PID5E slot response #%u: %s", state.lin_tx_count, attempt);
+    ESP_LOGW("LIN_TX", "PID5E slot response #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
     pending_pid5e_slot_tx_ = false;
   }
 

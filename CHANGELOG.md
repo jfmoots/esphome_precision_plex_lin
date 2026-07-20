@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.5.1 - External Component Compile Fix
+
+- Makes every top-level decoder header safe for ESPHome's generated aggregate
+  header and removes the recursive `esphome.h` include from protocol primitives.
+- Replaces the broad recursive include with targeted logging and UART headers.
+- Adds the required targeted UART component include.
+- Renames the ESPHome wrapper namespace to avoid colliding with the legacy
+  decoder namespace.
+- Fixes LIN TX counter log formatting for current ESP32 toolchains.
+- Leaves the Build 013.1 telemetry behavior and Home Assistant entity contract
+  unchanged.
+
 ## v0.5.0 - GitHub External Component Baseline
 
 - Converts the field-tested LIN Analyzer Build 013.1 into a versioned ESPHome

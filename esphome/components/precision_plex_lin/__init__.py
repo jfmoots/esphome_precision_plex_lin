@@ -8,8 +8,8 @@ CONF_UART_ID = "uart_id"
 DEPENDENCIES = ["uart"]
 MULTI_CONF = False
 
-precision_plex_ns = cg.esphome_ns.namespace("precision_plex")
-PrecisionPlexLinComponent = precision_plex_ns.class_(
+precision_plex_lin_ns = cg.esphome_ns.namespace("precision_plex_lin")
+PrecisionPlexLinComponent = precision_plex_lin_ns.class_(
     "PrecisionPlexLinComponent", cg.Component
 )
 
