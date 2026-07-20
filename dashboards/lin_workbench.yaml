@@ -1,0 +1,614 @@
+title: LIN Workbench
+views:
+  - title: HVAC
+    path: pid37-hvac
+    icon: mdi:air-conditioner
+    cards:
+      - type: markdown
+        title: PID37 Decoder Status
+        content: |
+          ## PID37 HVAC Decoder
+
+          | Field | Status |
+          |---|---|
+          | Zone | ✅ Confirmed |
+          | Mode / B4 | ✅ Mostly confirmed |
+          | Request / Phase / B5 | 🟡 Partially decoded; `0x50` needs validation |
+          | Operating State / B6 | 🟡 Partially decoded |
+          | Room Temp | ✅ Confirmed |
+          | Setpoint | ✅ Confirmed |
+          | Compressor Restart Delay Timer | ✅ Confirmed |
+          | Byte 10 | ⚪ Constant `0x06` observed |
+
+      - type: markdown
+        title: Zone 1 Live Frame
+        content: |
+          ## Zone 1
+
+          `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_field_summary') }}`
+
+          | Field | Value | Hex | Current Decode |
+          |---|---:|---:|---|
+          | Mode / B4 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_4_mode_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_4_mode_raw') | int) }}` | `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_mode') }}` |
+          | Request / Phase / B5 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_5_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_5_raw') | int) }}` | `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_request_phase') }}` |
+          | Operating State / B6 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_6_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_6_raw') | int) }}` | `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_operating_state') }}` |
+          | Room Temp | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_room_temperature') }}°F | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_room_temperature') | int) }}` | ✅ Room temperature |
+          | Setpoint | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_setpoint') }}°F | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_setpoint') | int) }}` | ✅ Setpoint |
+          | Restart Delay Timer | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_lockout_seconds') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_lockout_seconds') | int) }}` | ✅ >0 = compressor restart delay |
+          | Byte 10 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_10_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_pid37_byte_10_raw') | int) }}` | ⚪ Constant observed |
+
+          **Decoded Mode:** `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_mode') }}`  
+          **Request / Phase:** `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_request_phase') }}`  
+          **Operating State:** `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_1_operating_state') }}`  
+          **Compressor Restart Delay:** `{{ states('binary_sensor.basement_precision_plex_serial_connection_hvac_zone_1_compressor_lockout') }}`
+
+      - type: markdown
+        title: Zone 2 Live Frame
+        content: |
+          ## Zone 2
+
+          `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_field_summary') }}`
+
+          | Field | Value | Hex | Current Decode |
+          |---|---:|---:|---|
+          | Mode / B4 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_4_mode_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_4_mode_raw') | int) }}` | `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_mode') }}` |
+          | Request / Phase / B5 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_5_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_5_raw') | int) }}` | `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_request_phase') }}` |
+          | Operating State / B6 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_6_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_6_raw') | int) }}` | `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_operating_state') }}` |
+          | Room Temp | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_room_temperature') }}°F | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_room_temperature') | int) }}` | ✅ Room temperature |
+          | Setpoint | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_setpoint') }}°F | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_setpoint') | int) }}` | ✅ Setpoint |
+          | Restart Delay Timer | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_lockout_seconds') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_lockout_seconds') | int) }}` | ✅ >0 = compressor restart delay |
+          | Byte 10 | {{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_10_raw') }} | `{{ '%02X' | format(states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_pid37_byte_10_raw') | int) }}` | ⚪ Constant observed |
+
+          **Decoded Mode:** `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_mode') }}`  
+          **Request / Phase:** `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_request_phase') }}`  
+          **Operating State:** `{{ states('sensor.basement_precision_plex_serial_connection_hvac_zone_2_operating_state') }}`  
+          **Compressor Restart Delay:** `{{ states('binary_sensor.basement_precision_plex_serial_connection_hvac_zone_2_compressor_lockout') }}`
+
+      - type: markdown
+        title: PID37 Confirmed Decode
+        content: |
+          ## B4 Mode
+
+          | Zone | Hex | Decode |
+          |---|---:|---|
+          | 1 | `00` | ✅ Off |
+          | 1 | `10` | 🟡 Auto Heat candidate |
+          | 1 | `11` | ✅ Heat Pump |
+          | 1 | `12` | ✅ Furnace |
+          | 1 | `20` | ✅ Cool |
+          | 2 | `01` | ✅ Off |
+          | 2 | `11` | ✅ Heat Pump |
+          | 2 | `21` | ✅ Cool |
+
+          ## B5 Request / Phase
+
+          | Hex | Decode |
+          |---:|---|
+          | `00` | idle / manual / no active request |
+          | `01` | heat pump request/context |
+          | `10` | cooling request/context |
+          | `04` | furnace heat active |
+          | `50` | 🟡 needs validation: observed with satisfied cooling + restart delay; may be generic satisfied/waiting context |
+          | `54` | furnace call / ignition sequence |
+
+          ### B5 Research Note
+
+          `0x50` was originally associated with furnace/forced-fan context, but it has also been captured while Zone 1 was in `cool_satisfied` with the compressor restart delay active. Watch for `0x50` during satisfied heating cycles. It may be a generic controller satisfied/waiting context rather than a furnace-specific phase.
+
+          ## B6 Operating State
+
+          | Hex | Decode |
+          |---:|---|
+          | `00` | off idle |
+          | `11` | fan low running |
+          | `37` | fan high running |
+          | `40` | cool selected / satisfied |
+          | `41` | cooling active, low fan |
+          | `47` | cooling active, high fan |
+          | `50` | heat / furnace selected or waiting |
+          | `51` | heat pump active, low fan |
+
+          ## Compressor Restart Delay
+
+          PID37 byte 9 is better described as a compressor anti-short-cycle restart delay timer. Values greater than zero mean the compressor is temporarily prevented from restarting after a stop/satisfied cycle.
+
+          ## Byte 10
+
+          `0x06` has been observed across all captured operating states so far. Current interpretation: static configuration or reserved field.
+
+          ## Furnace Note
+
+          PID37 does **not** appear to report furnace blower state. Furnace phase is inferred from B5 only.
+
+      - type: entities
+        title: PID37 Raw Frame
+        entities:
+          - sensor.basement_precision_plex_serial_connection_pid37_last_frame
+
+  - title: Outputs
+    path: pid32-outputs
+    icon: mdi:toggle-switch
+    cards:
+      - type: markdown
+        title: PID32 Output Bitmap
+        content: |
+          ## PID32 Output Status
+
+          **Raw Frame**
+
+          `{{ states('sensor.basement_precision_plex_serial_connection_pid32_last_frame') }}`
+
+          | LIN Data Byte | Bit | Decode |
+          |---:|---:|---|
+          | Byte 0 | `0x01` | Awning Light |
+          | Byte 0 | `0x10` | Water Heater |
+          | Byte 0 | `0x40` | Tank Heater |
+          | Byte 0 | `0x80` | Water Pump |
+          | Byte 1 | `0x01` | Sofa Extend |
+          | Byte 1 | `0x02` | Awning Retract |
+          | Byte 1 | `0x04` | Awning Extend |
+          | Byte 1 | `0x08` | Bedroom Slide Extend |
+          | Byte 1 | `0x10` | Bedroom Slide Retract |
+          | Byte 1 | `0x80` | Sofa Retract |
+          | Byte 2 | `0x02` | Wardrobe Slide Retract |
+          | Byte 2 | `0x04` | Wardrobe Slide Extend |
+          | Byte 5 | `0x40` | Generator Running |
+
+      - type: entities
+        title: PID32 Live Outputs
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_water_heater_status
+            name: Water Heater
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_tank_heater_status
+            name: Tank Heater
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_awning_light_status
+            name: Awning Light
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_water_pump_status
+            name: Water Pump
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_generator_running
+            name: Generator Running
+          - entity: sensor.basement_precision_plex_serial_connection_lin_generator_state
+            name: Generator State
+          - entity: sensor.basement_precision_plex_serial_connection_lin_generator_runtime_tenths_digit
+            name: Generator Runtime Tenths Digit
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_sofa_slide_active
+            name: Sofa Slide Active
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_bedroom_slide_active
+            name: Bedroom Slide Active
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_wardrobe_slide_active
+            name: Wardrobe Slide Active
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_patio_awning_active
+            name: Patio Awning Active
+
+      - type: markdown
+        title: PID32 Working Decode
+        content: |
+          ## PID32 Current Known Decode
+
+          Current frame:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid32_last_frame') }}
+          ```
+
+          ## Confirmed Bit Mapping
+
+          ```text
+          Byte 0
+            0x01 = Awning Light
+            0x10 = Water Heater
+            0x40 = Tank Heater
+            0x80 = Water Pump
+
+          Byte 1
+            0x01 = Sofa Extend
+            0x02 = Awning Retract
+            0x04 = Awning Extend
+            0x08 = Bedroom Slide Extend
+            0x10 = Bedroom Slide Retract
+            0x80 = Sofa Retract
+
+          Byte 2
+            0x02 = Wardrobe Slide Retract
+            0x04 = Wardrobe Slide Extend
+
+          Byte 5
+            0x40 = Generator Running
+          ```
+
+          | Output | State |
+          |---|---|
+          | Water Heater | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_water_heater_status') }}` |
+          | Tank Heater | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_tank_heater_status') }}` |
+          | Awning Light | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_awning_light_status') }}` |
+          | Water Pump | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_water_pump_status') }}` |
+          | Generator Running | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_generator_running') }}` |
+          | Generator State | `{{ states('sensor.basement_precision_plex_serial_connection_lin_generator_state') }}` |
+          | Sofa Slide Active | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_sofa_slide_active') }}` |
+          | Bedroom Slide Active | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_bedroom_slide_active') }}` |
+          | Wardrobe Slide Active | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_wardrobe_slide_active') }}` |
+          | Patio Awning Active | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_patio_awning_active') }}` |
+
+  - title: Coach Flags
+    path: pidec-flags
+    icon: mdi:rv-truck
+    cards:
+      - type: entities
+        title: PIDEC Live Coach Flags
+        show_header_toggle: false
+        entities:
+          - entity: sensor.basement_precision_plex_serial_connection_pidec_last_frame
+            name: PIDEC Last Frame
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_ac_converter_present
+            name: AC / Converter Present
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_ignition_on
+            name: Ignition On
+
+      - type: markdown
+        title: PIDEC Working Decode
+        content: |
+          ## PIDEC Coach Flags
+
+          Current frame:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pidec_last_frame') }}
+          ```
+
+          ## Confirmed Decode
+
+          | LIN Field | Bit | Decode |
+          |---|---:|---|
+          | Byte 2 / B5 | `0x04` | AC / Converter Present |
+          | Byte 2 / B5 | `0x01` | Ignition On |
+
+          ## Live States
+
+          | Field | State |
+          |---|---|
+          | AC / Converter Present | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_ac_converter_present') }}` |
+          | Ignition On | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_ignition_on') }}` |
+
+  - title: Telemetry
+    path: pidba-telemetry
+    icon: mdi:gauge
+    cards:
+      - type: entities
+        title: PIDBA Live Coach Telemetry
+        show_header_toggle: false
+        entities:
+          - entity: sensor.basement_precision_plex_serial_connection_pidba_last_frame
+            name: PIDBA Last Frame
+          - entity: sensor.basement_precision_plex_serial_connection_lin_house_battery_voltage
+            name: House Battery Voltage
+          - entity: sensor.basement_precision_plex_serial_connection_lin_fresh_tank
+            name: Fresh Tank
+          - entity: sensor.basement_precision_plex_serial_connection_lin_grey_tank
+            name: Grey Tank
+          - entity: sensor.basement_precision_plex_serial_connection_lin_black_tank
+            name: Black Tank
+          - entity: sensor.basement_precision_plex_serial_connection_lin_propane
+            name: Propane
+          - entity: sensor.basement_precision_plex_serial_connection_lin_generator_state
+            name: Generator State
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_generator_running
+            name: Generator Running
+          - entity: sensor.basement_precision_plex_serial_connection_lin_generator_runtime_tenths_digit
+            name: Generator Runtime Tenths Digit
+
+      - type: markdown
+        title: PIDBA Working Decode
+        content: |
+          ## PIDBA Coach Telemetry
+
+          Current frame:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pidba_last_frame') }}
+          ```
+
+          ## Confirmed Byte / Nibble Mapping
+
+          | LIN Field | Decode |
+          |---|---|
+          | Page high nibble | Generator state |
+          | Page low nibble | Generator runtime tenths digit |
+          | Byte 7 | House battery voltage |
+          | Byte 8 high nibble | Propane |
+          | Byte 8 low nibble | Fresh tank |
+          | Byte 9 high nibble | Black tank |
+          | Byte 9 low nibble | Grey tank |
+
+          ## Live States
+
+          | Field | State |
+          |---|---|
+          | House Battery Voltage | `{{ states('sensor.basement_precision_plex_serial_connection_lin_house_battery_voltage') }}` |
+          | Fresh Tank | `{{ states('sensor.basement_precision_plex_serial_connection_lin_fresh_tank') }}` |
+          | Grey Tank | `{{ states('sensor.basement_precision_plex_serial_connection_lin_grey_tank') }}` |
+          | Black Tank | `{{ states('sensor.basement_precision_plex_serial_connection_lin_black_tank') }}` |
+          | Propane | `{{ states('sensor.basement_precision_plex_serial_connection_lin_propane') }}` |
+          | Generator State | `{{ states('sensor.basement_precision_plex_serial_connection_lin_generator_state') }}` |
+          | Generator Running | `{{ states('binary_sensor.basement_precision_plex_serial_connection_lin_generator_running') }}` |
+          | Generator Runtime Tenths Digit | `{{ states('sensor.basement_precision_plex_serial_connection_lin_generator_runtime_tenths_digit') }}` |
+
+          ## Notes
+
+          ```text
+          Battery voltage = raw Byte 7 / 16.0
+
+          Tank code:
+            0x0 = 0%
+            0x2 = 33%
+            0x4 = 67%
+            0x6 = 100%
+
+          Propane code:
+            0x0 = 0%
+            0x1 = 25%
+            0x3 = 50%
+            0x5 = 75%
+            0x6 = 100%
+          ```
+
+  - title: Commands
+    path: pid1f-commands
+    icon: mdi:gesture-tap-button
+    cards:
+      - type: entities
+        title: PID1F Live Command Monitor
+        show_header_toggle: false
+        entities:
+          - entity: sensor.basement_precision_plex_serial_connection_pid1f_response_timing
+            name: PID1F Response Timing
+          - entity: sensor.basement_precision_plex_serial_connection_pid1f_last_command
+            name: Last PID1F Frame
+          - entity: sensor.basement_precision_plex_serial_connection_pid1f_last_non_idle_command
+            name: Last Non-Idle Command
+          - entity: sensor.basement_precision_plex_serial_connection_pid1f_last_learned_command
+            name: Last Learned Command
+          - entity: sensor.basement_precision_plex_serial_connection_pid1f_command_history
+            name: Command History
+
+      - type: entities
+        title: LIN TX Diagnostics / Slot TX
+        show_header_toggle: false
+        entities:
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_tx_enabled
+            name: LIN TX Enabled
+          - entity: sensor.basement_precision_plex_serial_connection_lin_tx_count
+            name: LIN TX Count
+          - entity: sensor.basement_precision_plex_serial_connection_lin_tx_last_attempt
+            name: Last TX Attempt
+          - entity: sensor.basement_precision_plex_serial_connection_lin_tx_last_result
+            name: Last TX Result
+          - entity: sensor.basement_precision_plex_serial_connection_lin_tx_post_slot_capture
+            name: Post-Slot Capture
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_tx_echo_seen
+            name: TX Echo Seen
+          - entity: binary_sensor.basement_precision_plex_serial_connection_lin_tx_collision_suspected
+            name: Collision Suspected
+
+      - type: markdown
+        title: PID1F Command Analyzer
+        content: |
+          ## PID1F Command Channel
+
+          Last frame:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid1f_last_command') }}
+          ```
+
+          Last non-idle command:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid1f_last_non_idle_command') }}
+          ```
+
+          Last learned command:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid1f_last_learned_command') }}
+          ```
+
+          ## Confirmed Command Mapping
+
+          | PID1F Payload | Decode | Evidence |
+          |---|---|---|
+          | `3F 00` | Idle / ready | Repeating idle frame |
+          | `00 00` | Awning Light Toggle | PID32 Byte 0 `0x01` toggles |
+          | `04 00` | Water Heater Toggle | PID32 Byte 0 `0x10` toggles |
+          | `06 00` | Tank Heater Toggle | PID32 Byte 0 `0x40` toggles |
+          | `07 00` | Water Pump Toggle | PID32 Byte 0 `0x80` toggles |
+          | `49 00` | Patio Awning Retract | PID32 Awning Retract motion bit |
+          | `4A 00` | Patio Awning Extend | PID32 Awning Extend motion bit |
+          | `4F 00` | Sofa Slide Retract | PID32 Sofa Retract motion bit |
+          | `50 00` | Sofa Slide Extend | PID32 Sofa Extend motion bit |
+          | `51 00` | Wardrobe Slide Retract | PID32 Wardrobe Retract motion bit |
+          | `52 00` | Wardrobe Slide Extend | PID32 Wardrobe Extend motion bit |
+          | `53 00` | Bedroom Slide Retract | PID32 Bedroom Retract motion bit |
+          | `54 00` | Bedroom Slide Extend | PID32 Bedroom Extend motion bit |
+
+          ## Command Learning Notes
+
+          PID1F carries momentary touchscreen commands.
+
+          Build 012.0 keeps the PID1F learner and PID5E Wireless TP bridge analyzer. Timing-race controls were removed; the current command path uses PID5E with the Wireless TP FAULT/TXE claim line.
+
+          Output and motion commands are learned from PID32 before/after changes.
+
+          HVAC/status candidates are learned from PID37 before/after changes.
+
+          Generator candidates are learned from PIDBA generator state/runtime changes using a longer correlation window.
+
+      - type: markdown
+        title: PID1F Command History
+        content: |
+          ## Recent Non-Idle Commands
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid1f_command_history') }}
+          ```
+
+      - type: markdown
+        title: PID1F Research Targets
+        content: |
+          ## Next Commands to Capture
+
+          | Target | Status |
+          |---|---|
+          | Awning Light Toggle | ✅ Confirmed |
+          | Water Pump Toggle | ✅ Confirmed |
+          | Water Heater Toggle | ✅ Confirmed |
+          | Tank Heater Toggle | ✅ Confirmed |
+          | Patio Awning Extend | ✅ Confirmed |
+          | Patio Awning Retract | ✅ Confirmed |
+          | Sofa Slide Extend | ✅ Confirmed |
+          | Sofa Slide Retract | ✅ Confirmed |
+          | Bedroom Slide Extend | ✅ Confirmed |
+          | Bedroom Slide Retract | ✅ Confirmed |
+          | Wardrobe Slide Extend | ✅ Confirmed |
+          | Wardrobe Slide Retract | ✅ Confirmed |
+          | Generator Start | ⬜ Pending / PIDBA observer enabled |
+          | Generator Stop | ⬜ Pending / PIDBA observer enabled |
+          | Generator AutoStart Enable | ⬜ Pending / PIDBA observer enabled |
+          | Generator AutoStart Disable | ⬜ Pending / PIDBA observer enabled |
+          | HVAC Mode | 🟡 PID37 correlation enabled |
+          | HVAC Setpoint | 🟡 PID37 correlation enabled |
+          | HVAC Fan | 🟡 PID37 correlation enabled |
+
+  - title: Bridge
+    path: pid5e-bridge
+    icon: mdi:bluetooth
+    cards:
+      - type: entities
+        title: PID5E Wireless TP / BLE Bridge Analyzer
+        show_header_toggle: false
+        entities:
+          - entity: sensor.basement_precision_plex_serial_connection_pid5e_last_frame
+            name: PID5E Last Frame
+          - entity: sensor.basement_precision_plex_serial_connection_pid5e_last_non_idle_command
+            name: Last Non-Idle PID5E Payload
+          - entity: sensor.basement_precision_plex_serial_connection_pid5e_last_learned_command
+            name: Last Learned PID5E Result
+          - entity: button.basement_precision_plex_serial_connection_lin_test_pid5e_muted_awning_light_toggle
+            name: TEST PID5E Muted Awning Light Toggle
+          - entity: sensor.basement_precision_plex_serial_connection_pid5e_command_history
+            name: PID5E Command History
+          - entity: button.basement_precision_plex_serial_connection_lin_flight_recorder_10s
+            name: Start 10s Flight Recorder
+          - entity: sensor.basement_precision_plex_serial_connection_lin_flight_recorder_status
+            name: Flight Recorder Status
+
+      - type: markdown
+        title: PID5E Working Decode
+        content: |
+          ## PID5E Wireless TP / BLE Bridge
+
+          Current frame:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid5e_last_frame') }}
+          ```
+
+          Last non-idle payload:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid5e_last_non_idle_command') }}
+          ```
+
+          Last learned result:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid5e_last_learned_command') }}
+          ```
+
+          ## Analyzer Behavior
+
+          Build 012.0 uses the GPIO25 Wireless TP FAULT/TXE claim line during PID5E test commands. It temporarily claims the Wireless TP response slot, sends immediately when `00 55 5E` is observed, then releases the line so the Wireless TP and BLE state update normally.
+
+          Non-idle PID5E payloads are correlated against the same downstream state changes as PID1F:
+
+          | Downstream PID | Correlation Purpose |
+          |---|---|
+          | PID32 | Lights, water pump, water heater, tank heater, slides, patio awning, generator-running bit |
+          | PID37 | HVAC mode, request/phase, operating state, setpoint/telemetry changes |
+          | PIDBA | Generator state/runtime telemetry |
+
+          ## Known / Candidate Payloads
+
+          | PID5E Payload | Current Interpretation |
+          |---|---|
+          | `3F 00` | Idle / bridge ready |
+          | `B0 02` | Wireless TP housekeeping / bridge pulse |
+          | `B1 01` | Wireless TP housekeeping / bridge pulse |
+          | `00 00` | Awning-light toggle; confirmed through muted PID5E injection |
+          | `06 00` | Tank-heater toggle learned from PID1F; PMM accepts it, but practical control is blocked by touchscreen ownership |
+
+          ## Current Safe Test
+
+          Use **TEST PID5E Muted Awning Light Toggle** to replay `00 00 A1`. This is the preferred safe command-path test because the Wireless TP and BLE entities resynchronize immediately after the claim is released.
+
+          ## Tank Heater Finding
+
+          PID5E `06 00` was experimentally proven to turn the tank heater on briefly, which confirms the PMM accepts the payload through the Wireless TP slot. The touchscreen then reasserts its internally configured tank-heater state, likely because it owns the tank-heater voltage policy. The test button was removed and this is considered a closed investigation for PID5E-only control.
+
+      - type: markdown
+        title: All-PID Flight Recorder
+        content: |
+          ## Manual 10-Second Capture
+
+          Press **Start 10s Flight Recorder**, immediately perform the HA/mobile action, then inspect the frozen capture below.
+
+          Status:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_lin_flight_recorder_status') }}
+          ```
+
+          Capture:
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_lin_flight_recorder_capture') }}
+          ```
+
+      - type: markdown
+        title: PID5E Command History
+        content: |
+          ## Recent PID5E Learned Results
+
+          ```text
+          {{ states('sensor.basement_precision_plex_serial_connection_pid5e_command_history') }}
+          ```
+
+  - title: Unknown PIDs
+    path: unknown-pids
+    icon: mdi:help-network
+    cards:
+      - type: entities
+        title: Other Active PIDs
+        show_header_toggle: false
+        entities:
+          - entity: sensor.basement_precision_plex_serial_connection_pid9c_last_frame
+            name: PID9C Last Frame
+          - entity: sensor.basement_precision_plex_serial_connection_piddd_last_frame
+            name: PIDDD Last Frame
+
+      - type: markdown
+        title: Decode Checklist
+        content: |
+          ## Known / Active PIDs
+
+          | PID | Status | Notes |
+          |---|---|---|
+          | PID1F | 🟡 Command learner active | Touchscreen command channel; PID32/PID37 correlation enabled |
+          | PID32 | 🟢 Output bitmap | Water heater, tank heater, awning light, water pump, slides, awning motion, generator running |
+          | PID37 | 🟢 HVAC status | Mode, request/phase, operating state, temps, setpoints, restart delay mostly decoded |
+          | PID5E | 🟡 Wireless TP / BLE analyzer active | Non-idle payloads correlate against PID32/PID37/PIDBA |
+          | PID76 | ❓ Unknown | Repeating mostly-zero frame; needs mapping |
+          | PID9C | 🟡 Scheduler / HVAC auxiliary candidate | Active; likely housekeeping or HVAC auxiliary phase |
+          | PIDBA | 🟢 Coach telemetry | Battery, tanks, propane, generator telemetry |
+          | PIDDD | 🟡 Scheduler / housekeeping candidate | Active; likely scheduler or auxiliary housekeeping |
+          | PIDEC | 🟢 Coach flags | AC/converter present, ignition |
