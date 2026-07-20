@@ -9,6 +9,7 @@
 #include "ba.h"
 #include "ec.h"
 #include "pid1f.h"
+#include "command_intent.h"
 
 namespace precision_plex {
 
@@ -194,6 +195,7 @@ class Analyzer {
   ECDecoder ec_;
   PID1FDecoder pid1f_;
   SchedulerDecoder scheduler_;
+  CommandIntentObserver command_intent_;
 
   uint32_t count_ba_ = 0;
   uint32_t count_76_ = 0;
@@ -447,6 +449,7 @@ class Analyzer {
     if (pending_pid5e_slot_delay_us_ > 0) delayMicroseconds(pending_pid5e_slot_delay_us_);
     uart->write_array(response, sizeof(response));
     uart->flush();
+    command_intent_.observe_pid5e(pending_pid5e_slot_b0_, pending_pid5e_slot_b1_);
     delayMicroseconds(100);
     release_wireless_tp_mute_("PID5E fast TX complete");
 
@@ -491,6 +494,7 @@ class Analyzer {
     if (pending_slot_delay_us_ > 0) delayMicroseconds(pending_slot_delay_us_);
     uart->write_array(response, sizeof(response));
     uart->flush();
+    command_intent_.observe_pid1f(pending_slot_b0_, pending_slot_b1_);
 
     ESP_LOGW("LIN_TX", "PID1F slot response #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
     pending_slot_tx_ = false;
@@ -530,6 +534,7 @@ class Analyzer {
     if (pending_pid5e_slot_delay_us_ > 0) delayMicroseconds(pending_pid5e_slot_delay_us_);
     uart->write_array(response, sizeof(response));
     uart->flush();
+    command_intent_.observe_pid5e(pending_pid5e_slot_b0_, pending_pid5e_slot_b1_);
     delayMicroseconds(100);
     release_wireless_tp_mute_("PID5E parser fallback TX complete");
 
@@ -610,6 +615,8 @@ class Analyzer {
 
     if (f.pid == 0x1F) remember_pid1f_command_(f);
     if (f.pid == 0x5E) remember_pid5e_command_(f);
+    if (f.pid == 0x1F && f.len >= 6) command_intent_.observe_pid1f(f.bytes[3], f.bytes[4]);
+    if (f.pid == 0x5E && f.len >= 6) command_intent_.observe_pid5e(f.bytes[3], f.bytes[4]);
 
     switch (f.pid) {
       case 0x32:

@@ -1,5 +1,5 @@
 substitutions:
-  firmware_version: "lin-telemetry-v0.6.2-build013.1-generator-runtime"
+  firmware_version: "lin-telemetry-v0.6.3-build013.1-command-intent"
   lin_bridge_id: "esphome-web-055454"
 
 esphome:
@@ -37,7 +37,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.2
+      ref: v0.6.3
       path: esphome/components
     components:
       - precision_plex_lin

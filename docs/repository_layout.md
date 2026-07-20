@@ -23,6 +23,7 @@ esphome/
       version.h
       analyzer.h               Stream parser, learner, and flight recorder
       coach_state.h            Decoded state and freshness tracking
+      command_intent.h         Normalized PID1F/PID5E intent edges
       pid32.h                  Output and movement bitmap
       pid37.h                  HVAC telemetry
       ba.h                     Coach/generator telemetry

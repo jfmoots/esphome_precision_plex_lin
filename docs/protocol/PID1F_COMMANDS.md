@@ -20,6 +20,11 @@ PID1F is the Precision Plex touchscreen command channel. Commands observed so fa
 | `53 00` | Bedroom slide retract | PID32 bedroom retract motion bit |
 | `54 00` | Bedroom slide extend | PID32 bedroom extend motion bit |
 
+The lower initial forms `09/0A`, `0F/10`, `11/12`, and `13/14` and their
+corresponding `+0x40` active forms are normalized to the same logical movement.
+Repeated holds are ignored. An idle `3F 00` publishes a release only when
+PID1F previously announced an active motion.
+
 ## Notes
 
 All confirmed commands currently use the form `XX 00`, suggesting byte 0 is the command opcode and byte 1 is unused or reserved for these actions.
@@ -32,7 +37,8 @@ Earlier builds attempted PID1F timing sweeps to beat the touchscreen response sl
 
 ## Generator commands pending
 
-Generator commands should be captured as four separate commands:
+Generator commands have been captured on the BLE control path, but their LIN
+intent opcodes are not yet included in the confirmed PID1F/PID5E observer map:
 
 - Generator Start
 - Generator Stop

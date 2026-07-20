@@ -29,6 +29,7 @@ class PrecisionPlexLinComponent : public Component {
         s.outputs.revision != last_outputs_revision_ ||
         s.telemetry.revision != last_telemetry_revision_ ||
         s.power.revision != last_power_revision_ ||
+        s.command_intent.revision != last_command_intent_revision_ ||
         s.hvac_zone_1.revision != last_hvac_zone_1_revision_ ||
         s.hvac_zone_2.revision != last_hvac_zone_2_revision_;
     const bool heartbeat_due = now - last_snapshot_ms_ >= 2000;
@@ -38,6 +39,7 @@ class PrecisionPlexLinComponent : public Component {
       last_outputs_revision_ = s.outputs.revision;
       last_telemetry_revision_ = s.telemetry.revision;
       last_power_revision_ = s.power.revision;
+      last_command_intent_revision_ = s.command_intent.revision;
       last_hvac_zone_1_revision_ = s.hvac_zone_1.revision;
       last_hvac_zone_2_revision_ = s.hvac_zone_2.revision;
       snapshot_sequence_++;
@@ -166,6 +168,15 @@ class PrecisionPlexLinComponent : public Component {
     add_uint_(out, first, "crc_errors", s.bad_packets_total);
     add_string_(out, first, "last_pid", s.last_pid_hex);
 
+    add_bool_(out, first, "command_intent_capable", true);
+    add_uint_(out, first, "command_sequence", s.command_intent.sequence);
+    add_string_(out, first, "command_source", s.command_intent.source);
+    add_string_(out, first, "command_key", s.command_intent.key);
+    add_string_(out, first, "command_action", s.command_intent.action);
+    add_string_(out, first, "command_phase", s.command_intent.phase);
+    add_uint_(out, first, "command_opcode", s.command_intent.opcode);
+    add_uint_(out, first, "command_argument", s.command_intent.argument);
+
     add_float_(out, first, "coach_voltage", s.telemetry.house_battery_voltage);
     add_int_or_null_(out, first, "fresh_water_level", s.telemetry.fresh_tank_percent);
     add_int_or_null_(out, first, "grey_water_level", s.telemetry.grey_tank_percent);
@@ -223,6 +234,7 @@ class PrecisionPlexLinComponent : public Component {
   uint32_t last_outputs_revision_{0};
   uint32_t last_telemetry_revision_{0};
   uint32_t last_power_revision_{0};
+  uint32_t last_command_intent_revision_{0};
   uint32_t last_hvac_zone_1_revision_{0};
   uint32_t last_hvac_zone_2_revision_{0};
   CallbackManager<void(std::string)> snapshot_callback_;

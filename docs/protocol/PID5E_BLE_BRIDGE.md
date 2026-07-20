@@ -29,10 +29,22 @@ active.
 | Bedroom slide retract | `13 00` | `53 00` |
 | Bedroom slide extend | `14 00` | `54 00` |
 
-These captures establish the observed command payloads but do not yet establish
-the complete safe injection lifecycle for motor controls. Release and explicit
-stop behavior still need dedicated captures before movement command injection
-is implemented.
+These captures establish the observed command payloads and shared `3F 00`
+release behavior. They support passive state observation, but do not by
+themselves establish a complete safe injection lifecycle for motor controls.
+
+## v0.6.3 observation behavior
+
+The bridge now observes this channel without publishing every repeated frame:
+
+- the initial and active opcode forms produce one `motion_start` event;
+- repeated active/hold frames are ignored;
+- `3F 00` produces `motion_stop` only for motion active on PID5E;
+- `B0 02` and `B1 01` remain housekeeping and produce no intent;
+- a locally injected PID5E payload is observed at transmit time and a matching
+  echo does not create a second event.
+
+This event observer does not enable slide or awning injection.
 
 ## Proven claim/injection path
 

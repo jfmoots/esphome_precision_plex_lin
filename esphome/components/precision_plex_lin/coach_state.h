@@ -83,6 +83,18 @@ struct PowerState {
   std::string raw_frame;
 };
 
+struct CommandIntentState {
+  uint32_t revision = 0;
+  uint32_t sequence = 0;
+  uint32_t last_seen_ms = 0;
+  std::string source = "none";
+  std::string key = "none";
+  std::string action = "none";
+  std::string phase = "none";
+  uint8_t opcode = 0;
+  uint8_t argument = 0;
+};
+
 struct CoachState {
   bool lin_bus_active = false;
   bool touchscreen_seen = false;
@@ -134,6 +146,7 @@ struct CoachState {
   OutputState outputs;
   CoachTelemetryState telemetry;
   PowerState power;
+  CommandIntentState command_intent;
 
   void observe_valid_frame(uint8_t pid, const std::string &raw) {
     packets_total++;

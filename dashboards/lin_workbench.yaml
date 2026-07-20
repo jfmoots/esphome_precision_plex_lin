@@ -21,6 +21,7 @@ views:
           - Preferred telemetry: **LIN**
           - Shared-field fallback: **Bluetooth**
           - Commands: **Bluetooth**
+          - Fast requested-state observation: **PID1F + PID5E**
 
       - type: entities
         title: Integration Transport
@@ -51,6 +52,11 @@ views:
           | Last PID | `{{ state_attr(transport, 'lin_last_pid') }}` |
           | Snapshot sequence | `{{ state_attr(transport, 'lin_snapshot_sequence') }}` |
           | Snapshot reason | `{{ state_attr(transport, 'lin_snapshot_reason') }}` |
+          | Command intent capable | `{{ state_attr(transport, 'lin_command_intent_capable') }}` |
+          | Last command sequence | `{{ state_attr(transport, 'lin_command_sequence') }}` |
+          | Last command source | `{{ state_attr(transport, 'lin_command_source') }}` |
+          | Last command | `{{ state_attr(transport, 'lin_command_action') }} {{ state_attr(transport, 'lin_command_key') }}` |
+          | Command phase | `{{ state_attr(transport, 'lin_command_phase') }}` |
 
   - title: Coach
     path: coach-telemetry

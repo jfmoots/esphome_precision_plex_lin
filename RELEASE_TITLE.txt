@@ -1,1 +1,1 @@
-ESPHome Precision Plex LIN v0.6.2 — Complete Generator Runtime Telemetry
+ESPHome Precision Plex LIN v0.6.3 — Unified Command Intent Observer

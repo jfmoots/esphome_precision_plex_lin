@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.3 - Unified Command Intent Observer
+
+- Added an edge-driven PID1F/PID5E command observer.
+- Normalized toggle, motion-start, and motion-stop events into the snapshot.
+- Deduplicated request/active phases, repeated holds, housekeeping, and local
+  PID5E command echoes.
+- Kept PID32 as authoritative output confirmation.
+- Paired with Precision Plex integration v5.5.6.
+
 ## v0.6.2 - Complete Generator Runtime Telemetry
 
 - Decodes the PIDBA whole-hour counter from data bytes 1-3 as little-endian

@@ -10,11 +10,12 @@ ESP32 UART + LIN transceiver
 precision_plex_lin external component
         |-- frame synchronization and checksum validation
         |-- PID decoders and freshness tracking
-        |-- PID1F/PID5E learners and flight recorder
+        |-- normalized PID1F/PID5E command-intent observer
+        |-- protocol learners and flight recorder
         `-- guarded PID5E diagnostic transmit path
         |
         v
-ESPHome telemetry entities
+versioned Home Assistant event snapshot
         |
         v
 Precision Plex Home Assistant integration
@@ -22,6 +23,8 @@ Precision Plex Home Assistant integration
 ```
 
 The component owns LIN timing, parsing, decoded state, and command-path
-research. The example YAML publishes the stable ESPHome entity contract. The
-Home Assistant integration owns the user-facing lights, switches, covers,
-sensors, transport selection, and Bluetooth command fallback.
+observation. PID1F and PID5E each retain their own active-motion context; the
+component emits only meaningful toggle, start, and release edges. PID32 stays
+authoritative. The example YAML publishes the snapshot event contract. The Home
+Assistant integration owns the user-facing lights, switches, covers, sensors,
+transport selection, and Bluetooth command path.
