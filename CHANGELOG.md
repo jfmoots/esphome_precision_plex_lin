@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.6.0 - Integration-Owned Event Telemetry
+
+- Adds a versioned `on_snapshot` component trigger and one-second freshness
+  heartbeat for the Precision Plex integration.
+- Moves decoded entity naming, availability, and transport policy out of the
+  production ESPHome YAML and into Home Assistant.
+- Includes PIDBA core telemetry, PID32 outputs/movement, PIDEC coach flags,
+  and independently fresh PID37 HVAC zones in the snapshot contract.
+- Reduces the production node from dozens of template entities to the LIN
+  component plus its two hardware/research buttons.
+- Retains Build 013.1 movement decodes and Bluetooth command ownership.
+
 ## v0.5.1 - External Component Compile Fix
 
 - Makes every top-level decoder header safe for ESPHome's generated aggregate

@@ -1,1 +1,1 @@
-ESPHome Precision Plex LIN v0.5.1 — External Component Compile Fix
+ESPHome Precision Plex LIN v0.6.0 — Event Telemetry Transport
