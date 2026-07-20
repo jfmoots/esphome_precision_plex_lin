@@ -9,6 +9,7 @@ namespace precision_plex {
 struct HVACZoneState {
   bool valid = false;
   uint32_t last_seen_ms = 0;
+  uint32_t revision = 0;
 
   uint8_t raw_zone = 0;
   uint8_t raw_mode = 0;       // PID37 byte 4
@@ -32,6 +33,7 @@ struct HVACZoneState {
 struct OutputState {
   bool valid = false;
   uint32_t last_seen_ms = 0;
+  uint32_t revision = 0;
 
   bool awning_light = false;
   bool water_heater = false;
@@ -54,6 +56,7 @@ struct OutputState {
 struct CoachTelemetryState {
   bool valid = false;
   uint32_t last_seen_ms = 0;
+  uint32_t revision = 0;
 
   float house_battery_voltage = NAN;
   int propane_percent = -1;
@@ -70,6 +73,7 @@ struct CoachTelemetryState {
 struct PowerState {
   bool valid = false;
   uint32_t last_seen_ms = 0;
+  uint32_t revision = 0;
 
   bool ac_converter_present = false;
   bool ignition_on = false;

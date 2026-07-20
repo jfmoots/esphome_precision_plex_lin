@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.1 - Change-Driven Snapshot Delivery
+
+- Emits a snapshot immediately when PID32 outputs, PIDBA coach telemetry,
+  PIDEC flags, or either PID37 HVAC zone changes meaningfully.
+- Uses a two-second unchanged heartbeat only to maintain freshness.
+- Adds snapshot sequence and reason fields for transport diagnostics.
+- Avoids treating repeated high-frequency LIN frames as telemetry changes.
+- Pairs with Precision Plex integration v5.5.1.
+
 ## v0.6.0 - Integration-Owned Event Telemetry
 
 - Adds a versioned `on_snapshot` component trigger and one-second freshness

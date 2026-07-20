@@ -88,6 +88,7 @@ class BADecoder {
     state.telemetry.raw_frame = raw_string(f);
 
     if (!have_generator_page_ || page != last_generator_page_) {
+      state.telemetry.revision++;
       uint8_t old_high = (last_generator_page_ >> 4) & 0x0F;
       uint8_t old_low = last_generator_page_ & 0x0F;
 
@@ -132,6 +133,11 @@ class BADecoder {
     uint8_t old_fresh = last_telem_[8] & 0x0F;
     uint8_t old_black = (last_telem_[9] >> 4) & 0x0F;
     uint8_t old_grey  = last_telem_[9] & 0x0F;
+
+    if (!have_telem_ || battery_raw != old_battery_raw ||
+        lp != old_lp || fresh != old_fresh || black != old_black || grey != old_grey) {
+      state.telemetry.revision++;
+    }
 
     if (!have_telem_ || battery_raw != old_battery_raw) {
       ESP_LOGI(

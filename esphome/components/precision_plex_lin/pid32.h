@@ -37,6 +37,7 @@ class PID32Decoder {
     const std::string payload = payload_string(f);
     if (payload == last_payload_) return;
     last_payload_ = payload;
+    state.outputs.revision++;
 
     ESP_LOGI("PID32", "changed raw=%s", raw.c_str());
 

@@ -1,1 +1,1 @@
-ESPHome Precision Plex LIN v0.6.0 — Event Telemetry Transport
+ESPHome Precision Plex LIN v0.6.1 — Change-Driven Snapshot Delivery

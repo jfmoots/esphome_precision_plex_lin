@@ -58,6 +58,7 @@ class PID37Decoder {
     else if (zone == 2 && payload != last_z2_) { last_z2_ = payload; changed = true; }
     else if (zone != 1 && zone != 2) { changed = true; }
     if (!changed) return;
+    if (zone_state != nullptr) zone_state->revision++;
 
     const char *zone_name = zone == 1 ? "Front" : zone == 2 ? "Rear" : "Unknown";
 

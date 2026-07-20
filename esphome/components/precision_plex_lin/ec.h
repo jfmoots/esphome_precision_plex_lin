@@ -23,6 +23,7 @@ class ECDecoder {
     state.power.raw_frame = raw;
 
     if (!have_ || b5 != last_b5_) {
+      state.power.revision++;
       ESP_LOGI(
         "EC_FLAGS",
         "AC/Converter=%s Ignition=%s raw_b5=%02X",

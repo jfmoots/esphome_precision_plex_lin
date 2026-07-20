@@ -12,7 +12,7 @@ being characterized.
 
 ## Current release
 
-**v0.6.0**, based on field-tested LIN Analyzer **Build 013.1**.
+**v0.6.1**, based on field-tested LIN Analyzer **Build 013.1**.
 
 Current telemetry includes:
 
@@ -43,7 +43,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.0
+      ref: v0.6.1
       path: esphome/components
     components:
       - precision_plex_lin

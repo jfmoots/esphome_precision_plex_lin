@@ -24,10 +24,24 @@ class PrecisionPlexLinComponent : public Component {
   void loop() override {
     if (uart_parent_ != nullptr) ::precision_plex::global_analyzer().process(uart_parent_);
     const uint32_t now = millis();
-    if (now - last_snapshot_ms_ >= 1000) {
+    auto &s = ::precision_plex::coach_state();
+    const bool meaningful_change =
+        s.outputs.revision != last_outputs_revision_ ||
+        s.telemetry.revision != last_telemetry_revision_ ||
+        s.power.revision != last_power_revision_ ||
+        s.hvac_zone_1.revision != last_hvac_zone_1_revision_ ||
+        s.hvac_zone_2.revision != last_hvac_zone_2_revision_;
+    const bool heartbeat_due = now - last_snapshot_ms_ >= 2000;
+    if (meaningful_change || heartbeat_due) {
       last_snapshot_ms_ = now;
-      ::precision_plex::coach_state().update_health();
-      snapshot_callback_.call(build_snapshot_());
+      s.update_health();
+      last_outputs_revision_ = s.outputs.revision;
+      last_telemetry_revision_ = s.telemetry.revision;
+      last_power_revision_ = s.power.revision;
+      last_hvac_zone_1_revision_ = s.hvac_zone_1.revision;
+      last_hvac_zone_2_revision_ = s.hvac_zone_2.revision;
+      snapshot_sequence_++;
+      snapshot_callback_.call(build_snapshot_(meaningful_change));
     }
   }
 
@@ -121,7 +135,7 @@ class PrecisionPlexLinComponent : public Component {
     out += '"';
   }
 
-  std::string build_snapshot_() {
+  std::string build_snapshot_(bool meaningful_change) {
     const uint32_t now = millis();
     auto &s = ::precision_plex::coach_state();
     const bool telemetry_active = s.telemetry.valid && now - s.telemetry.last_seen_ms <= 10000;
@@ -135,6 +149,8 @@ class PrecisionPlexLinComponent : public Component {
     bool first = true;
     add_uint_(out, first, "schema", 1);
     add_string_(out, first, "firmware_version", firmware_version());
+    add_uint_(out, first, "snapshot_sequence", snapshot_sequence_);
+    add_string_(out, first, "snapshot_reason", meaningful_change ? "change" : "heartbeat");
     add_uint_(out, first, "uptime_ms", now);
     add_bool_(out, first, "bus_active", s.lin_bus_active);
     add_bool_(out, first, "telemetry_active", telemetry_active);
@@ -198,6 +214,12 @@ class PrecisionPlexLinComponent : public Component {
 
   uart::UARTComponent *uart_parent_{nullptr};
   uint32_t last_snapshot_ms_{0};
+  uint32_t snapshot_sequence_{0};
+  uint32_t last_outputs_revision_{0};
+  uint32_t last_telemetry_revision_{0};
+  uint32_t last_power_revision_{0};
+  uint32_t last_hvac_zone_1_revision_{0};
+  uint32_t last_hvac_zone_2_revision_{0};
   CallbackManager<void(std::string)> snapshot_callback_;
 };
 
