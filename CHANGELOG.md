@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.6.4 - Compact Heartbeat Snapshots
+
+- Keeps the two-second snapshot heartbeat used for rapid bridge-failure
+  detection and Bluetooth fallback.
+- Sends only schema, version, sequence, uptime, bus health, source freshness,
+  and capability fields when no decoded telemetry changed.
+- Continues sending the complete snapshot immediately for every meaningful
+  telemetry or command-intent change.
+- Pairs with Precision Plex integration v5.5.8.
+
 ## v0.6.3 - Unified Command Intent Observer
 
 - Added an edge-driven PID1F/PID5E command observer.

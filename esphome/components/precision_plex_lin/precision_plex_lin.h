@@ -160,6 +160,16 @@ class PrecisionPlexLinComponent : public Component {
     add_bool_(out, first, "power_active", power_active);
     add_bool_(out, first, "hvac_zone_1_active", zone_1_active);
     add_bool_(out, first, "hvac_zone_2_active", zone_2_active);
+    add_bool_(out, first, "command_intent_capable", true);
+
+    // An unchanged snapshot is only a liveness signal. Keep its event payload
+    // compact; the Home Assistant integration merges these health fields into
+    // the most recent change snapshot.
+    if (!meaningful_change) {
+      out += '}';
+      return out;
+    }
+
     add_bool_(out, first, "touchscreen_seen", s.touchscreen_seen);
     add_bool_(out, first, "wireless_tp_seen", s.wireless_tp_seen);
     add_float_(out, first, "packets_per_second", s.packets_per_second);
@@ -168,7 +178,6 @@ class PrecisionPlexLinComponent : public Component {
     add_uint_(out, first, "crc_errors", s.bad_packets_total);
     add_string_(out, first, "last_pid", s.last_pid_hex);
 
-    add_bool_(out, first, "command_intent_capable", true);
     add_uint_(out, first, "command_sequence", s.command_intent.sequence);
     add_string_(out, first, "command_source", s.command_intent.source);
     add_string_(out, first, "command_key", s.command_intent.key);

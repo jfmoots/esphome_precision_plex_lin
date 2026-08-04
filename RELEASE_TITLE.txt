@@ -1,1 +1,1 @@
-ESPHome Precision Plex LIN v0.6.3 — Unified Command Intent Observer
+ESPHome Precision Plex LIN v0.6.4 — Compact Heartbeat Snapshots
