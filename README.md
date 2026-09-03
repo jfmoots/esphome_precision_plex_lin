@@ -12,7 +12,7 @@ channels for immediate requested-state feedback.
 
 ## Current release
 
-**v0.6.4**, based on field-tested LIN Analyzer **Build 013.1**.
+**v0.6.5**, based on field-tested LIN Analyzer **Build 013.1**.
 
 Unchanged two-second heartbeats now carry only liveness and freshness fields.
 Meaningful telemetry and command changes still publish a complete snapshot
@@ -50,7 +50,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.4
+      ref: v0.6.5
       path: esphome/components
     components:
       - precision_plex_lin

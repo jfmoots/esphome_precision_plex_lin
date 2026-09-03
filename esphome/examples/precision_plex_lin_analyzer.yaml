@@ -1,5 +1,5 @@
 substitutions:
-  firmware_version: "lin-telemetry-v0.6.4-build013.1-compact-heartbeat"
+  firmware_version: "lin-telemetry-v0.6.5-build013.1-periodic-full"
   lin_bridge_id: "esphome-web-055454"
 
 esphome:
@@ -37,7 +37,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.4
+      ref: v0.6.5
       path: esphome/components
     components:
       - precision_plex_lin

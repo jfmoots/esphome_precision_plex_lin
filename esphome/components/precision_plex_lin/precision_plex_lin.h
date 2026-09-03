@@ -13,6 +13,8 @@ namespace precision_plex_lin {
 
 class PrecisionPlexLinComponent : public Component {
  public:
+  static constexpr uint32_t FULL_SNAPSHOT_INTERVAL_MS = 30000;
+
   void set_uart_parent(uart::UARTComponent *uart_parent) { uart_parent_ = uart_parent; }
 
   void setup() override {
@@ -33,8 +35,12 @@ class PrecisionPlexLinComponent : public Component {
         s.hvac_zone_1.revision != last_hvac_zone_1_revision_ ||
         s.hvac_zone_2.revision != last_hvac_zone_2_revision_;
     const bool heartbeat_due = now - last_snapshot_ms_ >= 2000;
+    const bool periodic_full_due =
+        last_full_snapshot_ms_ == 0 || now - last_full_snapshot_ms_ >= FULL_SNAPSHOT_INTERVAL_MS;
     if (meaningful_change || heartbeat_due) {
       last_snapshot_ms_ = now;
+      const bool full_snapshot = meaningful_change || periodic_full_due;
+      if (full_snapshot) last_full_snapshot_ms_ = now;
       s.update_health();
       last_outputs_revision_ = s.outputs.revision;
       last_telemetry_revision_ = s.telemetry.revision;
@@ -43,7 +49,7 @@ class PrecisionPlexLinComponent : public Component {
       last_hvac_zone_1_revision_ = s.hvac_zone_1.revision;
       last_hvac_zone_2_revision_ = s.hvac_zone_2.revision;
       snapshot_sequence_++;
-      snapshot_callback_.call(build_snapshot_(meaningful_change));
+      snapshot_callback_.call(build_snapshot_(full_snapshot, meaningful_change));
     }
   }
 
@@ -137,7 +143,7 @@ class PrecisionPlexLinComponent : public Component {
     out += '"';
   }
 
-  std::string build_snapshot_(bool meaningful_change) {
+  std::string build_snapshot_(bool full_snapshot, bool meaningful_change) {
     const uint32_t now = millis();
     auto &s = ::precision_plex::coach_state();
     const bool telemetry_active = s.telemetry.valid && now - s.telemetry.last_seen_ms <= 10000;
@@ -152,7 +158,8 @@ class PrecisionPlexLinComponent : public Component {
     add_uint_(out, first, "schema", 1);
     add_string_(out, first, "firmware_version", firmware_version());
     add_uint_(out, first, "snapshot_sequence", snapshot_sequence_);
-    add_string_(out, first, "snapshot_reason", meaningful_change ? "change" : "heartbeat");
+    add_string_(out, first, "snapshot_reason",
+                meaningful_change ? "change" : (full_snapshot ? "periodic_full" : "heartbeat"));
     add_uint_(out, first, "uptime_ms", now);
     add_bool_(out, first, "bus_active", s.lin_bus_active);
     add_bool_(out, first, "telemetry_active", telemetry_active);
@@ -165,7 +172,7 @@ class PrecisionPlexLinComponent : public Component {
     // An unchanged snapshot is only a liveness signal. Keep its event payload
     // compact; the Home Assistant integration merges these health fields into
     // the most recent change snapshot.
-    if (!meaningful_change) {
+    if (!full_snapshot) {
       out += '}';
       return out;
     }
@@ -179,6 +186,8 @@ class PrecisionPlexLinComponent : public Component {
     add_string_(out, first, "last_pid", s.last_pid_hex);
 
     add_uint_(out, first, "command_sequence", s.command_intent.sequence);
+    add_uint_(out, first, "command_age_ms",
+              s.command_intent.sequence == 0 ? 0 : now - s.command_intent.last_seen_ms);
     add_string_(out, first, "command_source", s.command_intent.source);
     add_string_(out, first, "command_key", s.command_intent.key);
     add_string_(out, first, "command_action", s.command_intent.action);
@@ -239,6 +248,7 @@ class PrecisionPlexLinComponent : public Component {
 
   uart::UARTComponent *uart_parent_{nullptr};
   uint32_t last_snapshot_ms_{0};
+  uint32_t last_full_snapshot_ms_{0};
   uint32_t snapshot_sequence_{0};
   uint32_t last_outputs_revision_{0};
   uint32_t last_telemetry_revision_{0};

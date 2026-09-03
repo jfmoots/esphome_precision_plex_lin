@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.5 - Restart-Safe Snapshot Recovery
+
+- Sends a complete snapshot on startup and at least every 30 seconds so a
+  restarted Home Assistant instance can repopulate LIN-only readings without
+  waiting for telemetry to change.
+- Includes command-intent age in complete snapshots so consumers can reject a
+  cached command during initial synchronization.
+- Keeps compact two-second heartbeats between complete snapshots.
+
 ## v0.6.4 - Compact Heartbeat Snapshots
 
 - Keeps the two-second snapshot heartbeat used for rapid bridge-failure
