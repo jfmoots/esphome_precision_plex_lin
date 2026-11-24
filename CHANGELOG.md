@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.6 - Leased Patio Awning Control
+
+- Recovers checksum-valid PID32 motion frames following an unanswered PID76 header.
+- Adds leased patio-awning movement with PID32 start and stop feedback.
+- Adds acknowledged PID5E desired-state control for the awning light, water heater, and water pump.
+
 ## v0.6.5 - Restart-Safe Snapshot Recovery
 
 - Sends a complete snapshot on startup and at least every 30 seconds so a

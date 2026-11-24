@@ -1,5 +1,5 @@
 substitutions:
-  firmware_version: "lin-telemetry-v0.6.5-build013.1-periodic-full"
+  firmware_version: "lin-telemetry-v0.6.6-build013.7-awning-motion"
   lin_bridge_id: "esphome-web-055454"
 
 esphome:
@@ -25,6 +25,23 @@ logger:
   level: INFO
 
 api:
+  actions:
+    - action: precision_plex_awning_motion
+      variables:
+        operation: string
+        extend: bool
+        request_id: string
+        max_ms: int
+      then:
+        - lambda: id(lin_bridge).awning_motion(operation, extend, request_id, max_ms);
+    - action: precision_plex_set_output
+      variables:
+        output_key: string
+        desired_state: bool
+        request_id: string
+      then:
+        - lambda: id(lin_bridge).set_output(output_key, desired_state, request_id);
+
 
 ota:
   platform: esphome
@@ -37,7 +54,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.5
+      ref: v0.6.6
       path: esphome/components
     components:
       - precision_plex_lin
@@ -87,3 +104,53 @@ button:
           id(lin_bridge).queue_pid5e_slot_tx(
             0x00, 0x00, "PID5E muted awning light toggle", 0
           );
+
+  - platform: template
+    name: LIN Command PID5E Water Heater Toggle
+    id: lin_command_pid5e_water_heater_toggle
+    entity_category: diagnostic
+    on_press:
+      - lambda: |-
+          id(lin_bridge).queue_pid5e_slot_tx(
+            0x04, 0x00, "PID5E water heater toggle", 0
+          );
+
+  - platform: template
+    name: LIN Command PID5E Water Pump Toggle
+    id: lin_command_pid5e_water_pump_toggle
+    entity_category: diagnostic
+    on_press:
+      - lambda: |-
+          id(lin_bridge).queue_pid5e_slot_tx(
+            0x07, 0x00, "PID5E water pump toggle", 0
+          );
+
+  - platform: template
+    name: LIN Awning Commissioning Jog Extend
+    entity_category: diagnostic
+    on_press:
+      - lambda: id(lin_bridge).start_awning_jog(true);
+
+  - platform: template
+    name: LIN Awning Commissioning Jog Retract
+    entity_category: diagnostic
+    on_press:
+      - lambda: id(lin_bridge).start_awning_jog(false);
+
+  - platform: template
+    name: LIN Awning Commissioning Stop
+    entity_category: diagnostic
+    on_press:
+      - lambda: id(lin_bridge).stop_awning_jog();
+
+  - platform: template
+    name: LIN Awning Test Extend 5 Seconds
+    entity_category: diagnostic
+    on_press:
+      - lambda: ::precision_plex::global_analyzer().start_awning_jog(true, true);
+
+  - platform: template
+    name: LIN Awning Test Retract 5 Seconds
+    entity_category: diagnostic
+    on_press:
+      - lambda: ::precision_plex::global_analyzer().start_awning_jog(false, true);

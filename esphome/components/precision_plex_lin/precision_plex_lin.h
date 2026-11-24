@@ -27,7 +27,11 @@ class PrecisionPlexLinComponent : public Component {
     if (uart_parent_ != nullptr) ::precision_plex::global_analyzer().process(uart_parent_);
     const uint32_t now = millis();
     auto &s = ::precision_plex::coach_state();
+    const auto &output_result = ::precision_plex::global_analyzer().output_command_result();
+    const auto &awning_result = ::precision_plex::global_analyzer().awning_motion_result();
     const bool meaningful_change =
+        awning_result.revision != last_awning_motion_revision_ ||
+        output_result.revision != last_output_command_revision_ ||
         s.outputs.revision != last_outputs_revision_ ||
         s.telemetry.revision != last_telemetry_revision_ ||
         s.power.revision != last_power_revision_ ||
@@ -42,6 +46,8 @@ class PrecisionPlexLinComponent : public Component {
       const bool full_snapshot = meaningful_change || periodic_full_due;
       if (full_snapshot) last_full_snapshot_ms_ = now;
       s.update_health();
+      last_awning_motion_revision_ = awning_result.revision;
+      last_output_command_revision_ = output_result.revision;
       last_outputs_revision_ = s.outputs.revision;
       last_telemetry_revision_ = s.telemetry.revision;
       last_power_revision_ = s.power.revision;
@@ -77,6 +83,17 @@ class PrecisionPlexLinComponent : public Component {
                            uint16_t delay_us = 0) {
     ::precision_plex::global_analyzer().queue_pid5e_slot_tx(b0, b1, label, delay_us);
   }
+
+  void set_output(const std::string &key, bool desired, const std::string &request_id) {
+    ::precision_plex::global_analyzer().set_output(key, desired, request_id);
+  }
+
+  void awning_motion(const std::string &operation, bool extend, const std::string &request_id, int max_ms) {
+    ::precision_plex::global_analyzer().awning_motion(operation, extend, request_id, max_ms);
+  }
+
+  void start_awning_jog(bool extend) { ::precision_plex::global_analyzer().start_awning_jog(extend); }
+  void stop_awning_jog() { ::precision_plex::global_analyzer().stop_awning_jog(); }
 
   void trigger_flight_recorder(const char *label, uint32_t duration_ms = 10000) {
     ::precision_plex::global_analyzer().trigger_flight_recorder(label, duration_ms);
@@ -164,10 +181,20 @@ class PrecisionPlexLinComponent : public Component {
     add_bool_(out, first, "bus_active", s.lin_bus_active);
     add_bool_(out, first, "telemetry_active", telemetry_active);
     add_bool_(out, first, "outputs_active", outputs_active);
+    if (s.outputs.valid) add_uint_(out, first, "outputs_age_ms", now - s.outputs.last_seen_ms);
     add_bool_(out, first, "power_active", power_active);
     add_bool_(out, first, "hvac_zone_1_active", zone_1_active);
     add_bool_(out, first, "hvac_zone_2_active", zone_2_active);
     add_bool_(out, first, "command_intent_capable", true);
+    add_bool_(out, first, "output_control_capable", true);
+    const auto &output_result = ::precision_plex::global_analyzer().output_command_result();
+    add_string_(out, first, "output_request_id", output_result.request_id);
+    add_string_(out, first, "output_request_status", output_result.status);
+
+    const auto &awning_result = ::precision_plex::global_analyzer().awning_motion_result();
+    add_bool_(out, first, "awning_motion_capable", true);
+    add_string_(out, first, "awning_motion_request", awning_result.request_id);
+    add_string_(out, first, "awning_motion_status", awning_result.status);
 
     // An unchanged snapshot is only a liveness signal. Keep its event payload
     // compact; the Home Assistant integration merges these health fields into
@@ -250,6 +277,8 @@ class PrecisionPlexLinComponent : public Component {
   uint32_t last_snapshot_ms_{0};
   uint32_t last_full_snapshot_ms_{0};
   uint32_t snapshot_sequence_{0};
+  uint32_t last_awning_motion_revision_{0};
+  uint32_t last_output_command_revision_{0};
   uint32_t last_outputs_revision_{0};
   uint32_t last_telemetry_revision_{0};
   uint32_t last_power_revision_{0};
