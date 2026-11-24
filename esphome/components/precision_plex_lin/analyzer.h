@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <deque>
+#include "esphome/core/helpers.h"
 #include "esphome/components/uart/uart.h"
 #include "protocol.h"
 #include "coach_state.h"
@@ -43,31 +45,12 @@ class Analyzer {
 
 
   void queue_pid5e_slot_tx(uint8_t b0, uint8_t b1, const char *label, uint16_t delay_us = 0) {
-    pending_pid5e_slot_tx_ = true;
-    pending_pid5e_slot_b0_ = b0;
-    pending_pid5e_slot_b1_ = b1;
-    pending_pid5e_slot_label_ = label ? label : "PID5E command";
-    pending_pid5e_slot_delay_us_ = delay_us;
-    pending_pid5e_slot_queued_ms_ = millis();
-
-    uint8_t checksum = classic_checksum_(0x5E, b0, b1);
-    char attempt[180];
-    snprintf(attempt, sizeof(attempt), "%s / queued PID5E payload %02X %02X checksum %02X; delay=%uus; waiting for PID5E slot",
-             pending_pid5e_slot_label_.c_str(), b0, b1, checksum, (unsigned) pending_pid5e_slot_delay_us_);
-
-    CoachState &state = coach_state();
-    state.lin_tx_enabled = true;
-    state.lin_tx_last_attempt = attempt;
-    state.lin_tx_last_result = "queued; Wireless TP claimed on GPIO25; waiting for PMM PID5E poll/header";
-
-    // Build 012.0: claim the Wireless TP PID5E response slot immediately when
-    // a PID5E command is queued.  The claim uses the MCP2004E FAULT/TXE line
-    // to disable the factory Wireless TP transmitter before the next PID5E
-    // poll arrives.  The line is released immediately after our response is
-    // sent or if the command expires.
-    assert_wireless_tp_mute_("queued PID5E command claim");
-
-    ESP_LOGW("LIN_TX", "Queued PID5E slot TX with Wireless TP claim: %s", attempt);
+    if (pid5e_commands_.size() >= 8) {
+      ESP_LOGW("LIN_TX", "PID5E queue full; rejected %s", label ? label : "command");
+      return;
+    }
+    pid5e_commands_.push_back({b0, b1, delay_us, label ? label : "PID5E command"});
+    if (!wireless_tp_mute_asserted_ && !pid5e_waiting_for_idle_) arm_pid5e_command_();
   }
 
   void trigger_flight_recorder(const char *label, uint32_t duration_ms = 10000) {
@@ -76,6 +59,8 @@ class Analyzer {
     flight_recorder_duration_ms_ = duration_ms;
     flight_recorder_label_ = label ? label : "manual all-PID capture";
     flight_recorder_frames_.clear();
+    flight_recorder_frames_.reserve(FLIGHT_FRAME_LIMIT);
+    flight_dump_index_ = 0;
     flight_recorder_frame_count_ = 0;
 
     CoachState &state = coach_state();
@@ -88,9 +73,10 @@ class Analyzer {
   }
 
   void process(esphome::uart::UARTComponent *uart) {
+    expire_pid5e_command_();
     while (uart->available()) {
       uint8_t c;
-      uart->read_byte(&c);
+      if (!uart->read_byte(&c)) break;
 
       // Build 010.6 fast-path: when a PID5E command is queued, react to the
       // raw byte stream as soon as the PMM header 00 55 5E is observed.  The
@@ -118,7 +104,7 @@ class Analyzer {
         buf_.erase(buf_.begin());
       }
 
-      if (buf_.size() < 3) return;
+      if (buf_.size() < 3) continue;
 
       uint8_t pid = buf_[2];
 
@@ -127,7 +113,6 @@ class Analyzer {
       // then respond only when the PMM has just issued the PID1F header
       // (BREAK/SYNC/PID observed here as 00 55 1F).
       maybe_send_pending_pid1f_slot_response_(uart, pid);
-      maybe_send_pending_pid5e_slot_response_(uart, pid);
 
       int len = expected_len(pid);
       if (len == 0) {
@@ -137,7 +122,7 @@ class Analyzer {
         continue;
       }
 
-      if ((int) buf_.size() < len) return;
+      if ((int) buf_.size() < len) continue;
 
       Frame f;
       f.pid = pid;
@@ -166,6 +151,10 @@ class Analyzer {
     }
     expire_pid1f_response_timing_if_needed_();
     expire_flight_recorder_if_needed_();
+    dump_flight_chunk_();
+    if (tx_capture_active_ && millis() - tx_capture_started_ms_ > 100) {
+      publish_post_slot_capture_("capture_timeout_100ms");
+    }
   }
 
  private:
@@ -218,12 +207,41 @@ class Analyzer {
   uint16_t pending_slot_delay_us_ = 0;
   std::string pending_slot_label_;
 
-  bool pending_pid5e_slot_tx_ = false;
-  uint32_t pending_pid5e_slot_queued_ms_ = 0;
-  uint8_t pending_pid5e_slot_b0_ = 0;
-  uint8_t pending_pid5e_slot_b1_ = 0;
-  uint16_t pending_pid5e_slot_delay_us_ = 0;
-  std::string pending_pid5e_slot_label_;
+  struct PID5ECommand {
+    uint8_t b0;
+    uint8_t b1;
+    uint16_t delay_us;
+    std::string label;
+  };
+  std::deque<PID5ECommand> pid5e_commands_;
+  esphome::HighFrequencyLoopRequester pid5e_fast_loop_;
+  uint32_t pid5e_phase_started_ms_ = 0;
+  bool pid5e_waiting_for_idle_ = false;
+  bool tx_capture_suppress_awning_echo_ = false;
+
+  void arm_pid5e_command_() {
+    pid5e_phase_started_ms_ = millis();
+    pid5e_fast_loop_.start();
+    assert_wireless_tp_mute_("queued PID5E command claim");
+    auto &state = coach_state();
+    state.lin_tx_enabled = true;
+    state.lin_tx_last_result = "queued; waiting for a fresh PID5E header";
+    ESP_LOGW("LIN_TX", "Queued %s; waiting for fresh PID5E header; depth=%u",
+             pid5e_commands_.front().label.c_str(), (unsigned) pid5e_commands_.size());
+  }
+
+  void expire_pid5e_command_() {
+    if ((!wireless_tp_mute_asserted_ && !pid5e_waiting_for_idle_) ||
+        millis() - pid5e_phase_started_ms_ < 3000) return;
+
+    if (wireless_tp_mute_asserted_) release_wireless_tp_mute_("PID5E header timeout");
+    pid5e_fast_loop_.stop();
+    pid5e_waiting_for_idle_ = false;
+    ESP_LOGW("LIN_TX", "PID5E header or idle timeout; discarded %u queued command(s)",
+             (unsigned) pid5e_commands_.size());
+    pid5e_commands_.clear();
+    coach_state().lin_tx_last_result = "PID5E header or idle timeout";
+  }
 
   // Raw byte-stream header detector for the low-latency PID5E response test.
   uint8_t stream_prev2_ = 0xFF;
@@ -281,7 +299,14 @@ class Analyzer {
   uint32_t flight_recorder_duration_ms_ = 10000;
   uint32_t flight_recorder_frame_count_ = 0;
   std::string flight_recorder_label_;
-  std::vector<std::string> flight_recorder_frames_;
+  struct FlightFrame {
+    uint32_t age_ms;
+    Frame frame;
+  };
+  static constexpr size_t FLIGHT_FRAME_LIMIT = 1200;
+  std::vector<FlightFrame> flight_recorder_frames_;
+  size_t flight_dump_index_ = 0;
+  uint32_t last_flight_dump_ms_ = 0;
 
   uint8_t classic_checksum_(uint8_t pid, uint8_t b0, uint8_t b1) const {
     uint16_t sum = pid + b0 + b1;
@@ -386,6 +411,7 @@ class Analyzer {
   void begin_post_slot_capture_(uint8_t b0, uint8_t b1, uint8_t checksum) {
     CoachState &state = coach_state();
     tx_capture_active_ = true;
+    tx_capture_suppress_awning_echo_ = false;
     tx_capture_started_ms_ = millis();
     tx_capture_expected_[0] = b0;
     tx_capture_expected_[1] = b1;
@@ -416,48 +442,40 @@ class Analyzer {
     stream_prev2_ = stream_prev1_;
     stream_prev1_ = current_byte;
 
-    if (!pending_pid5e_slot_tx_ || !header_seen) return false;
+    if (!wireless_tp_mute_asserted_ || pid5e_commands_.empty() || !header_seen) return false;
+    // A buffered response byte means the response window has already opened.
+    if (uart->available()) return false;
 
-    CoachState &state = coach_state();
-    const uint32_t age = millis() - pending_pid5e_slot_queued_ms_;
-    if (age > 3000) {
-      char result[180];
-      snprintf(result, sizeof(result), "PID5E fast TX expired; no PID5E header seen within %lums", (unsigned long) age);
-      state.lin_tx_last_result = result;
-      pending_pid5e_slot_tx_ = false;
-      release_wireless_tp_mute_("PID5E fast TX expired");
-      ESP_LOGW("LIN_TX", "%s", result);
-      return false;
-    }
+    auto &command = pid5e_commands_.front();
+    const uint8_t checksum = classic_checksum_(0x5E, command.b0, command.b1);
+    const uint8_t response[] = {command.b0, command.b1, checksum};
 
-    const uint8_t checksum = classic_checksum_(0x5E, pending_pid5e_slot_b0_, pending_pid5e_slot_b1_);
-    const uint8_t response[] = {pending_pid5e_slot_b0_, pending_pid5e_slot_b1_, checksum};
-
-    state.lin_tx_count++;
-    char attempt[220];
-    snprintf(attempt, sizeof(attempt), "%s / PID5E FAST response %02X %02X %02X delay=%uus",
-             pending_pid5e_slot_label_.c_str(), pending_pid5e_slot_b0_, pending_pid5e_slot_b1_, checksum,
-             (unsigned) pending_pid5e_slot_delay_us_);
-    state.lin_tx_last_attempt = attempt;
-
-    char result[220];
-    snprintf(result, sizeof(result), "pid5e_fast_header_seen_raw_00555E; Wireless TP claimed GPIO25; delay=%uus; wrote immediately before parser; capturing RX",
-             (unsigned) pending_pid5e_slot_delay_us_);
-    state.lin_tx_last_result = result;
-    begin_post_slot_capture_(pending_pid5e_slot_b0_, pending_pid5e_slot_b1_, checksum);
-
-    if (pending_pid5e_slot_delay_us_ > 0) delayMicroseconds(pending_pid5e_slot_delay_us_);
+    if (command.delay_us > 0) delayMicroseconds(command.delay_us);
     uart->write_array(response, sizeof(response));
     uart->flush();
-    command_intent_.observe_pid5e(pending_pid5e_slot_b0_, pending_pid5e_slot_b1_);
     delayMicroseconds(100);
     release_wireless_tp_mute_("PID5E fast TX complete");
+    pid5e_fast_loop_.stop();
 
-    ESP_LOGW("LIN_TX", "PID5E FAST response #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
-    pending_pid5e_slot_tx_ = false;
+    auto &state = coach_state();
+    const bool awning_toggle = command.b0 == 0x00 && command.b1 == 0x00;
+    begin_post_slot_capture_(command.b0, command.b1, checksum);
+    tx_capture_suppress_awning_echo_ = awning_toggle;
+    if (!awning_toggle) command_intent_.observe_pid5e(command.b0, command.b1);
+    state.lin_tx_count++;
+    char attempt[160];
+    snprintf(attempt, sizeof(attempt), "%s / PID5E TX %02X %02X %02X",
+             command.label.c_str(), command.b0, command.b1, checksum);
+    state.lin_tx_last_attempt = attempt;
+    state.lin_tx_last_result = "wrote PID5E response; waiting for bus feedback";
+    ESP_LOGW("LIN_TX", "PID5E TX #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
+
+    pid5e_commands_.pop_front();
+    // Give the factory module a response slot between injected toggles.
+    pid5e_waiting_for_idle_ = true;
+    pid5e_phase_started_ms_ = millis();
     return true;
   }
-
 
   void maybe_send_pending_pid1f_slot_response_(esphome::uart::UARTComponent *uart, uint8_t pid) {
     if (!pending_slot_tx_) return;
@@ -501,70 +519,17 @@ class Analyzer {
   }
 
 
-  void maybe_send_pending_pid5e_slot_response_(esphome::uart::UARTComponent *uart, uint8_t pid) {
-    if (!pending_pid5e_slot_tx_) return;
-
-    CoachState &state = coach_state();
-    const uint32_t age = millis() - pending_pid5e_slot_queued_ms_;
-    if (age > 3000) {
-      char result[180];
-      snprintf(result, sizeof(result), "PID5E slot TX expired; no PID5E header seen within %lums", (unsigned long) age);
-      state.lin_tx_last_result = result;
-      pending_pid5e_slot_tx_ = false;
-      release_wireless_tp_mute_("PID5E parser fallback expired");
-      ESP_LOGW("LIN_TX", "%s", result);
-      return;
-    }
-
-    if (pid != 0x5E) return;
-
-    const uint8_t checksum = classic_checksum_(0x5E, pending_pid5e_slot_b0_, pending_pid5e_slot_b1_);
-    const uint8_t response[] = {pending_pid5e_slot_b0_, pending_pid5e_slot_b1_, checksum};
-
-    state.lin_tx_count++;
-    char attempt[200];
-    snprintf(attempt, sizeof(attempt), "%s / PID5E slot response %02X %02X %02X delay=%uus",
-             pending_pid5e_slot_label_.c_str(), pending_pid5e_slot_b0_, pending_pid5e_slot_b1_, checksum, (unsigned) pending_pid5e_slot_delay_us_);
-    state.lin_tx_last_attempt = attempt;
-    char result[180];
-    snprintf(result, sizeof(result), "pid5e_parser_fallback_header_seen; Wireless TP claimed GPIO25; delay=%uus; wrote PID5E payload/checksum; capturing post-slot RX", (unsigned) pending_pid5e_slot_delay_us_);
-    state.lin_tx_last_result = result;
-    begin_post_slot_capture_(pending_pid5e_slot_b0_, pending_pid5e_slot_b1_, checksum);
-
-    if (pending_pid5e_slot_delay_us_ > 0) delayMicroseconds(pending_pid5e_slot_delay_us_);
-    uart->write_array(response, sizeof(response));
-    uart->flush();
-    command_intent_.observe_pid5e(pending_pid5e_slot_b0_, pending_pid5e_slot_b1_);
-    delayMicroseconds(100);
-    release_wireless_tp_mute_("PID5E parser fallback TX complete");
-
-    ESP_LOGW("LIN_TX", "PID5E slot response #%lu: %s", (unsigned long) state.lin_tx_count, attempt);
-    pending_pid5e_slot_tx_ = false;
-  }
-
-
-  void record_flight_frame_(const Frame &f, const std::string &raw) {
+  void record_flight_frame_(const Frame &f) {
     if (!flight_recorder_active_) return;
-    const uint32_t now = millis();
-    const uint32_t age = now - flight_recorder_start_ms_;
+    const uint32_t age = millis() - flight_recorder_start_ms_;
     if (age > flight_recorder_duration_ms_) {
       finish_flight_recorder_("duration complete");
       return;
     }
-
     flight_recorder_frame_count_++;
-
-    // Build 010.5: longer recorder for human-in-the-loop captures.
-    // Keep all relevant command/feedback PIDs for the full 10s window so the
-    // user has time to wait for ACTIVE before toggling HA/app.
-    bool interesting = false;
-    if (f.pid == 0x5E || f.pid == 0x1F || f.pid == 0x32 || f.pid == 0x37 || f.pid == 0xBA || f.pid == 0xEC || f.pid == 0x76 || f.pid == 0x9C || f.pid == 0xDD) interesting = true;
-    if (!interesting && (flight_recorder_frame_count_ % 50) != 0) return;
-
-    char line[220];
-    snprintf(line, sizeof(line), "+%lums PID%02X %s", (unsigned long) age, f.pid, raw.c_str());
-    flight_recorder_frames_.push_back(line);
-    if (flight_recorder_frames_.size() > 500) flight_recorder_frames_.erase(flight_recorder_frames_.begin());
+    if (flight_recorder_frames_.size() < FLIGHT_FRAME_LIMIT) {
+      flight_recorder_frames_.push_back({age, f});
+    }
   }
 
   void finish_flight_recorder_(const char *reason) {
@@ -578,14 +543,34 @@ class Analyzer {
              (unsigned long) flight_recorder_frame_count_, (unsigned) flight_recorder_frames_.size());
     state.flight_recorder_status = status;
 
-    std::string joined;
-    for (size_t i = 0; i < flight_recorder_frames_.size(); i++) {
-      if (i) joined += "\n";
-      joined += flight_recorder_frames_[i];
+    state.flight_recorder_capture = status;
+    ESP_LOGW("LIN_FLIGHT", "%s", status);
+  }
+
+  void dump_flight_chunk_() {
+    if (flight_recorder_active_ || wireless_tp_mute_asserted_ ||
+        flight_dump_index_ >= flight_recorder_frames_.size()) return;
+    const uint32_t now = millis();
+    if (now - last_flight_dump_ms_ < 20) return;
+    last_flight_dump_ms_ = now;
+
+    // Pace output so a completed capture does not block LIN reception.
+    std::string chunk;
+    char line[80];
+    for (size_t i = 0; i < 5 && flight_dump_index_ < flight_recorder_frames_.size(); i++) {
+      const auto &item = flight_recorder_frames_[flight_dump_index_++];
+      snprintf(line, sizeof(line), "+%lums PID%02X %s",
+               (unsigned long) item.age_ms, item.frame.pid, raw_string(item.frame).c_str());
+      if (!chunk.empty()) chunk += '\n';
+      chunk += line;
     }
-    if (joined.empty()) joined = "no frames retained";
-    state.flight_recorder_capture = joined;
-    ESP_LOGW("LIN_FLIGHT", "%s\n%s", status, joined.c_str());
+    ESP_LOGW("LIN_FLIGHT", "%s", chunk.c_str());
+    if (flight_dump_index_ == flight_recorder_frames_.size()) {
+      ESP_LOGW("LIN_FLIGHT", "capture dump complete; %u frames",
+               (unsigned) flight_recorder_frames_.size());
+      flight_recorder_frames_.clear();
+      flight_dump_index_ = 0;
+    }
   }
 
   void expire_flight_recorder_if_needed_() {
@@ -599,7 +584,7 @@ class Analyzer {
     CoachState &state = coach_state();
     const std::string raw = raw_string(f);
     state.observe_valid_frame(f.pid, raw);
-    record_flight_frame_(f, raw);
+    record_flight_frame_(f);
     if (f.pid == 0x1F) state.pid1f_last_command = raw;
     else if (f.pid == 0x5E) state.pid5e_last_frame = raw;
     else if (f.pid == 0x32) state.pid32_last_frame = raw;
@@ -616,7 +601,15 @@ class Analyzer {
     if (f.pid == 0x1F) remember_pid1f_command_(f);
     if (f.pid == 0x5E) remember_pid5e_command_(f);
     if (f.pid == 0x1F && f.len >= 6) command_intent_.observe_pid1f(f.bytes[3], f.bytes[4]);
-    if (f.pid == 0x5E && f.len >= 6) command_intent_.observe_pid5e(f.bytes[3], f.bytes[4]);
+    if (f.pid == 0x5E && f.len >= 6) {
+      const bool local_awning_echo = tx_capture_suppress_awning_echo_ &&
+          millis() - tx_capture_started_ms_ <= 100 && f.bytes[3] == 0x00 && f.bytes[4] == 0x00;
+      if (!local_awning_echo) command_intent_.observe_pid5e(f.bytes[3], f.bytes[4]);
+      if (pid5e_waiting_for_idle_ && f.bytes[3] == 0x3F && f.bytes[4] == 0x00) {
+        pid5e_waiting_for_idle_ = false;
+        if (!pid5e_commands_.empty()) arm_pid5e_command_();
+      }
+    }
 
     switch (f.pid) {
       case 0x32:
