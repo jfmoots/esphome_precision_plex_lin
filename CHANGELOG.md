@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.9 - Telemetry Snapshot Filtering
+
+- Publishes an immediate telemetry snapshot for changes to decoded PID32, PID37, and PIDEC snapshot fields.
+- Keeps raw frame changes in the existing analyzer and diagnostic logs.
+
 ## v0.6.8 - LIN Generator Control
 
 - Adds PID5E commands for manual Start and Stop and managed AutoStart and AutoStop.

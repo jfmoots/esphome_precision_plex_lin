@@ -16,6 +16,15 @@ class PID32Decoder {
     uint8_t b5 = f.bytes[5];
     uint8_t b9 = f.bytes[9];
 
+    // Only the bits published in the event snapshot advance the telemetry revision.
+    const uint32_t published_bits = (static_cast<uint32_t>(b3 & 0xD1) << 24) |
+                                    (static_cast<uint32_t>(b4 & 0x86) << 16) |
+                                    (static_cast<uint32_t>(b5 & 0x1F) << 8) |
+                                    (b9 & 0x40);
+    if (!state.outputs.valid || published_bits != last_published_bits_) {
+      state.outputs.revision++;
+      last_published_bits_ = published_bits;
+    }
     state.outputs.valid = true;
     state.outputs.last_seen_ms = millis();
     state.outputs.awning_light = b3 & 0x01;
@@ -38,7 +47,6 @@ class PID32Decoder {
     const std::string payload = payload_string(f);
     if (payload == last_payload_) return;
     last_payload_ = payload;
-    state.outputs.revision++;
 
     ESP_LOGI("PID32", "changed raw=%s", raw.c_str());
 
@@ -61,6 +69,7 @@ class PID32Decoder {
   }
 
  private:
+  uint32_t last_published_bits_ = 0;
   std::string last_payload_;
 };
 

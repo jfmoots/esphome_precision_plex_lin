@@ -20,7 +20,7 @@
    `rx_full_threshold: 1` on the LIN UART for the direct PID5E awning-light
    test. This lets the firmware see the poll header as each byte arrives.
 
-The example pins the external component to `v0.6.8`. Keep production systems
+The example pins the external component to `v0.6.9`. Keep production systems
 on a release tag instead of `main` so later repository changes cannot silently
 alter a known-good build.
 

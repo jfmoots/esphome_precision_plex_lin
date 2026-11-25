@@ -28,6 +28,12 @@ class PID37Decoder {
     else if (zone == 2) zone_state = &state.hvac_zone_2;
 
     if (zone_state != nullptr) {
+      if (!zone_state->valid ||
+          zone_state->raw_mode != b4 || zone_state->raw_status != b5 ||
+          zone_state->raw_fan != b6 || zone_state->room_temp_f != room ||
+          zone_state->setpoint_f != setp || zone_state->lockout_seconds != lockout) {
+        zone_state->revision++;
+      }
       zone_state->valid = true;
       zone_state->last_seen_ms = millis();
       zone_state->raw_zone = zone;
@@ -58,7 +64,6 @@ class PID37Decoder {
     else if (zone == 2 && payload != last_z2_) { last_z2_ = payload; changed = true; }
     else if (zone != 1 && zone != 2) { changed = true; }
     if (!changed) return;
-    if (zone_state != nullptr) zone_state->revision++;
 
     const char *zone_name = zone == 1 ? "Front" : zone == 2 ? "Rear" : "Unknown";
 

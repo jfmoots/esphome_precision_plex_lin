@@ -1,9 +1,9 @@
 substitutions:
-  firmware_version: "lin-telemetry-v0.6.8-build014.0-generator-control"
+  firmware_version: "lin-telemetry-v0.6.9-build014.1-snapshot-telemetry"
   lin_bridge_id: "esphome-web-055454"
 
 esphome:
-  name: esphome-web-055454
+  name: ${lin_bridge_id}
   friendly_name: Precision Plex LIN Bridge
   min_version: 2026.6.4
   name_add_mac_suffix: false
@@ -84,7 +84,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.8
+      ref: v0.6.9
       path: esphome/components
     components:
       - precision_plex_lin

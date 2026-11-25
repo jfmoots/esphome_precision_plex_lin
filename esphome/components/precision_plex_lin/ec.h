@@ -15,6 +15,10 @@ class ECDecoder {
 
     CoachState &state = coach_state();
     state.pidec_last_frame = raw;
+    if (!state.power.valid || state.power.ac_converter_present != ac_present ||
+        state.power.ignition_on != ignition) {
+      state.power.revision++;
+    }
     state.power.valid = true;
     state.power.last_seen_ms = millis();
     state.power.ac_converter_present = ac_present;
@@ -23,7 +27,6 @@ class ECDecoder {
     state.power.raw_frame = raw;
 
     if (!have_ || b5 != last_b5_) {
-      state.power.revision++;
       ESP_LOGI(
         "EC_FLAGS",
         "AC/Converter=%s Ignition=%s raw_b5=%02X",
