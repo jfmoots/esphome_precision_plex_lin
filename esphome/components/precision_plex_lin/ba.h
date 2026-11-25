@@ -6,23 +6,24 @@ namespace precision_plex {
 
 class BADecoder {
  public:
-  void decode(const Frame &f) {
+  bool decode(const Frame &f) {
     uint8_t page = f.bytes[3];
 
     if (page == 0x80) {
       decode_page_80(f);
-      return;
+      return false;
     }
 
     uint8_t gen_state_nibble = (page >> 4) & 0x0F;
     if (is_generator_page_(gen_state_nibble)) {
       decode_generator_page_(f, page);
       decode_coach_telemetry_(f, page);
-      return;
+      return true;
     }
 
     const auto raw = raw_string(f);
     ESP_LOGI("BA_OTHER", "page=%02X raw=%s", page, raw.c_str());
+    return false;
   }
 
  private:

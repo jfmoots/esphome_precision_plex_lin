@@ -45,7 +45,8 @@ class Analyzer {
 
 
   void queue_pid5e_slot_tx(uint8_t b0, uint8_t b1, const char *label, uint16_t delay_us = 0) {
-    if (!output_command_request_.empty() || motion_phase_ != MotionPhase::IDLE) {
+    if (!generator_request_.empty() || !output_command_request_.empty() ||
+        motion_phase_ != MotionPhase::IDLE) {
       ESP_LOGW("LIN_TX", "Ignored diagnostic toggle while a desired-state command is running");
       return;
     }
@@ -78,8 +79,8 @@ class Analyzer {
       return;
     }
 
-    if (!output_command_request_.empty() || !pid5e_commands_.empty() ||
-        motion_phase_ != MotionPhase::IDLE) {
+    if (!generator_request_.empty() || !output_command_request_.empty() ||
+        !pid5e_commands_.empty() || motion_phase_ != MotionPhase::IDLE) {
       publish_output_command_(request_id, "busy");
       return;
     }
@@ -101,6 +102,45 @@ class Analyzer {
     output_command_sent_ = false;
     pid5e_commands_.push_back({opcode, 0x00, 0, "desired PID32 output"});
     if (!pid5e_waiting_for_idle_) arm_pid5e_command_();
+  }
+
+  const OutputCommandResult &generator_command_result() const { return generator_result_; }
+
+  void generator_command(const std::string &key, const std::string &request_id) {
+    if (request_id.empty() || request_id.size() > 64 ||
+        request_id == generator_request_ || request_id == generator_result_.request_id) return;
+    // Keep the outstanding owner's result available. No response to a
+    // concurrent caller is ambiguous and must never trigger Bluetooth.
+    if (!generator_request_.empty()) return;
+    uint8_t opcode;
+    if (key == "generator_start") opcode = 0x02;
+    else if (key == "generator_stop") opcode = 0x03;
+    else if (key == "generator_auto_start") opcode = 0x0A;
+    else if (key == "generator_auto_stop") opcode = 0x0B;
+    else {
+      publish_generator_result_(request_id, "unsupported");
+      return;
+    }
+
+    if (motion_phase_ != MotionPhase::IDLE || wireless_tp_mute_asserted_ ||
+        pending_slot_tx_ || pid5e_waiting_for_idle_ || !pid5e_commands_.empty() ||
+        !output_command_request_.empty()) {
+      publish_generator_result_(request_id, "busy");
+      return;
+    }
+    if (!generator_state_allows_(opcode)) {
+      publish_generator_result_(request_id, "refused");
+      return;
+    }
+    generator_request_ = request_id;
+    generator_opcode_ = opcode;
+    generator_baseline_ = coach_state().telemetry.generator_state_raw;
+    generator_slot_count_ = 0;
+    generator_released_ = false;
+    generator_acknowledged_ = false;
+    generator_started_ms_ = millis();
+    pid5e_fast_loop_.start();
+    assert_wireless_tp_mute_("generator command");
   }
 
   const OutputCommandResult &awning_motion_result() const { return motion_result_(MotionTarget::AWNING); }
@@ -165,6 +205,7 @@ class Analyzer {
   void process(esphome::uart::UARTComponent *uart) {
     expire_motion_();
     expire_output_command_();
+    expire_generator_command_();
     expire_pid5e_command_();
     while (uart->available()) {
       uint8_t c;
@@ -416,6 +457,7 @@ class Analyzer {
     return !motion_locked_ && motion_phase_ == MotionPhase::IDLE &&
         !pid5e_waiting_for_idle_ && !wireless_tp_mute_asserted_ &&
         !pending_slot_tx_ && pid5e_commands_.empty() && output_command_request_.empty() &&
+        generator_request_.empty() &&
         motion_inputs_safe_(target) && !moving_(target, true) && !moving_(target, false);
   }
 
@@ -566,6 +608,99 @@ class Analyzer {
     }
   }
 
+  static constexpr uint32_t GENERATOR_BA_FRESH_MS = 1000;
+  static constexpr uint32_t GENERATOR_BURST_TIMEOUT_MS = 1000;
+  static constexpr uint32_t GENERATOR_ACK_TIMEOUT_MS = 3500;
+  OutputCommandResult generator_result_;
+  std::string generator_request_;
+  uint8_t generator_opcode_ = 0;
+  uint8_t generator_baseline_ = 0;
+  uint8_t generator_slot_count_ = 0;
+  bool generator_released_ = false;
+  bool generator_acknowledged_ = false;
+  uint32_t generator_started_ms_ = 0;
+
+  bool generator_state_allows_(uint8_t opcode) const {
+    const auto &telemetry = coach_state().telemetry;
+    if (telemetry.generator_state == "unknown" ||
+        millis() - telemetry.last_seen_ms > GENERATOR_BA_FRESH_MS) return false;
+    const uint8_t state = telemetry.generator_state_raw;
+    if (opcode == 0x03) return state == 0x01;
+    if (opcode == 0x0B) return state == 0x00 || state == 0x01 || state == 0x06;
+    return state == 0x00;
+  }
+
+  void publish_generator_result_(const std::string &request_id, const char *status) {
+    generator_result_.request_id = request_id;
+    generator_result_.status = status;
+    generator_result_.revision++;
+    ESP_LOGI("LIN_GENERATOR", "Generator command result: %s", status);
+  }
+
+  void finish_generator_command_(const char *status) {
+    if (!generator_released_) {
+      if (wireless_tp_mute_asserted_) release_wireless_tp_mute_("generator command finished");
+      pid5e_fast_loop_.stop();
+    }
+    publish_generator_result_(generator_request_, status);
+    generator_request_.clear();
+  }
+
+  void expire_generator_command_() {
+    if (generator_request_.empty()) return;
+    const uint32_t elapsed = millis() - generator_started_ms_;
+    if (!generator_released_ && elapsed >= GENERATOR_BURST_TIMEOUT_MS) {
+      if (generator_slot_count_ != 0) finish_generator_command_("burst_incomplete");
+      else finish_generator_command_(generator_state_allows_(generator_opcode_) ? "not_sent" : "refused");
+    } else if (generator_released_ && elapsed >= GENERATOR_ACK_TIMEOUT_MS) {
+      finish_generator_command_("unconfirmed");
+    }
+  }
+
+  bool send_generator_slot_(esphome::uart::UARTComponent *uart) {
+    expire_generator_command_();
+    if (generator_request_.empty() || generator_released_) return false;
+    if (generator_slot_count_ == 0) {
+      if (!generator_state_allows_(generator_opcode_)) {
+        finish_generator_command_("refused");
+        return false;
+      }
+      generator_baseline_ = coach_state().telemetry.generator_state_raw;
+    }
+    const bool release = generator_slot_count_ == 3;
+    const uint8_t b0 = release ? 0x3F : 0x3E;
+    const uint8_t b1 = release ? 0x00 : generator_opcode_;
+    const uint8_t response[] = {b0, b1, classic_checksum_(0x5E, b0, b1)};
+    uart->write_array(response, sizeof(response));
+    uart->flush();
+    ESP_LOGI("LIN_GENERATOR", "TX %02X %02X %02X", b0, b1, response[2]);
+    if (release) {
+      delayMicroseconds(100);
+      release_wireless_tp_mute_("generator release sent");
+      pid5e_fast_loop_.stop();
+      generator_released_ = true;
+      if (generator_acknowledged_) finish_generator_command_("accepted");
+      else if (generator_opcode_ == 0x0B && generator_baseline_ == 0)
+        finish_generator_command_("sent_idle");
+    } else {
+      ++generator_slot_count_;
+    }
+    return true;
+  }
+
+  void observe_generator_status_() {
+    if (generator_request_.empty() || generator_slot_count_ == 0) return;
+    const uint8_t state = coach_state().telemetry.generator_state_raw;
+    const bool accepted =
+        (generator_opcode_ == 0x02 && (state == 0x04 || state == 0x01)) ||
+        (generator_opcode_ == 0x03 && (state == 0x05 || state == 0x00)) ||
+        (generator_opcode_ == 0x0A && (state == 0x06 || state == 0x01)) ||
+        (generator_opcode_ == 0x0B &&
+            (state == 0x07 || (state == 0x00 && generator_baseline_ != 0x00)));
+    generator_acknowledged_ |= accepted;
+    if (generator_released_ && generator_acknowledged_) finish_generator_command_("accepted");
+  }
+
   bool tx_capture_suppress_pid5e_echo_ = false;
   static constexpr uint32_t OUTPUT_FRESH_MS = 1000;
   static constexpr uint32_t OUTPUT_SLOT_TIMEOUT_MS = 3500;
@@ -625,7 +760,7 @@ class Analyzer {
   }
 
   void expire_pid5e_command_() {
-    if (motion_phase_ != MotionPhase::IDLE ||
+    if (motion_phase_ != MotionPhase::IDLE || !generator_request_.empty() ||
         (!wireless_tp_mute_asserted_ && !pid5e_waiting_for_idle_) ||
         millis() - pid5e_phase_started_ms_ < 3000) return;
 
@@ -842,6 +977,7 @@ class Analyzer {
 
     if (!wireless_tp_mute_asserted_ || !header_seen || uart->available()) return false;
     if (motion_phase_ != MotionPhase::IDLE) return send_motion_slot_(uart);
+    if (!generator_request_.empty()) return send_generator_slot_(uart);
     if (pid5e_commands_.empty()) return false;
 
     const bool desired_output = !output_command_request_.empty() && !output_command_sent_;
@@ -1043,7 +1179,7 @@ class Analyzer {
         correlate_pid37_after_pid5e_command_(f);
         break;
       case 0xBA:
-        ba_.decode(f);
+        if (ba_.decode(f)) observe_generator_status_();
         correlate_pidba_after_command_();
         correlate_pidba_after_pid5e_command_();
         break;

@@ -28,6 +28,7 @@ class PrecisionPlexLinComponent : public Component {
     const uint32_t now = millis();
     auto &s = ::precision_plex::coach_state();
     const auto &output_result = ::precision_plex::global_analyzer().output_command_result();
+    const auto &generator_result = ::precision_plex::global_analyzer().generator_command_result();
     const auto &awning_result = ::precision_plex::global_analyzer().awning_motion_result();
     const auto &bedroom_result = ::precision_plex::global_analyzer().bedroom_motion_result();
     const auto &sofa_result = ::precision_plex::global_analyzer().sofa_motion_result();
@@ -38,6 +39,7 @@ class PrecisionPlexLinComponent : public Component {
         sofa_result.revision != last_sofa_motion_revision_ ||
         wardrobe_result.revision != last_wardrobe_motion_revision_ ||
         output_result.revision != last_output_command_revision_ ||
+        generator_result.revision != last_generator_command_revision_ ||
         s.outputs.revision != last_outputs_revision_ ||
         s.telemetry.revision != last_telemetry_revision_ ||
         s.power.revision != last_power_revision_ ||
@@ -57,6 +59,7 @@ class PrecisionPlexLinComponent : public Component {
       last_sofa_motion_revision_ = sofa_result.revision;
       last_wardrobe_motion_revision_ = wardrobe_result.revision;
       last_output_command_revision_ = output_result.revision;
+      last_generator_command_revision_ = generator_result.revision;
       last_outputs_revision_ = s.outputs.revision;
       last_telemetry_revision_ = s.telemetry.revision;
       last_power_revision_ = s.power.revision;
@@ -95,6 +98,10 @@ class PrecisionPlexLinComponent : public Component {
 
   void set_output(const std::string &key, bool desired, const std::string &request_id) {
     ::precision_plex::global_analyzer().set_output(key, desired, request_id);
+  }
+
+  void generator_command(const std::string &key, const std::string &request_id) {
+    ::precision_plex::global_analyzer().generator_command(key, request_id);
   }
 
   void awning_motion(const std::string &operation, bool extend, const std::string &request_id, int max_ms) {
@@ -212,8 +219,12 @@ class PrecisionPlexLinComponent : public Component {
     add_bool_(out, first, "command_intent_capable", true);
     add_bool_(out, first, "output_control_capable", true);
     const auto &output_result = ::precision_plex::global_analyzer().output_command_result();
+    const auto &generator_result = ::precision_plex::global_analyzer().generator_command_result();
     add_string_(out, first, "output_request_id", output_result.request_id);
     add_string_(out, first, "output_request_status", output_result.status);
+    add_bool_(out, first, "generator_command_capable", true);
+    add_string_(out, first, "generator_request_id", generator_result.request_id);
+    add_string_(out, first, "generator_request_status", generator_result.status);
 
     const auto &awning_result = ::precision_plex::global_analyzer().awning_motion_result();
     const auto &bedroom_result = ::precision_plex::global_analyzer().bedroom_motion_result();
@@ -320,6 +331,7 @@ class PrecisionPlexLinComponent : public Component {
   uint32_t last_sofa_motion_revision_{0};
   uint32_t last_wardrobe_motion_revision_{0};
   uint32_t last_output_command_revision_{0};
+  uint32_t last_generator_command_revision_{0};
   uint32_t last_outputs_revision_{0};
   uint32_t last_telemetry_revision_{0};
   uint32_t last_power_revision_{0};
