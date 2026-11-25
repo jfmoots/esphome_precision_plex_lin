@@ -35,14 +35,8 @@ Motion commands are grouped in the `0x49` through `0x54` range, with gaps that m
 
 Earlier builds attempted PID1F timing sweeps to beat the touchscreen response slot. That approach is retired. The current architecture uses the Wireless TP PID5E slot and the MCP2004E FAULT/TXE claim line instead of racing an installed controller.
 
-## Generator commands pending
+## Generator commands
 
-Generator commands have been captured on the BLE control path, but their LIN
-intent opcodes are not yet included in the confirmed PID1F/PID5E observer map:
-
-- Generator Start
-- Generator Stop
-- Generator AutoStart Enable
-- Generator AutoStart Disable
-
-PIDBA generator observer remains useful for correlating generator state/runtime changes with learned commands.
+The Bluetooth-to-LIN generator commands were observed on PID5E. See the
+[PID5E generator captures](PID5E_BLE_BRIDGE.md#observed-generator-commands).
+The touchscreen's PID1F generator commands remain unmapped.
