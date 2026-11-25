@@ -20,7 +20,7 @@
    `rx_full_threshold: 1` on the LIN UART for the direct PID5E awning-light
    test. This lets the firmware see the poll header as each byte arrives.
 
-The example pins the external component to `v0.6.6`. Keep production systems
+The example pins the external component to `v0.6.7`. Keep production systems
 on a release tag instead of `main` so later repository changes cannot silently
 alter a known-good build.
 
@@ -33,7 +33,7 @@ new LIN-only HVAC, tank-heater, AC/converter, and ignition entities become
 available as their source PIDs are observed.
 
 The Home Assistant integration uses the example's native ESPHome actions for
-desired-state output commands and leased patio-awning movement. Enable the
+desired-state output commands and leased patio-awning and slide movement. Enable the
 bridge to perform Home Assistant actions so it can publish feedback events.
 
 ## Updating

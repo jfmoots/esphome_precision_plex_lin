@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.7 - Leased Slide Control
+
+- Adds leased LIN motion for the bedroom, sofa, and wardrobe slides.
+- Uses PID32 to confirm slide movement and release. A single bridge lease owns movement at a time.
+- Adds native ESPHome actions for all three slides to the example configuration.
+
 ## v0.6.6 - Leased Patio Awning Control
 
 - Recovers checksum-valid PID32 motion frames following an unanswered PID76 header.

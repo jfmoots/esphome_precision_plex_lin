@@ -29,8 +29,14 @@ class PrecisionPlexLinComponent : public Component {
     auto &s = ::precision_plex::coach_state();
     const auto &output_result = ::precision_plex::global_analyzer().output_command_result();
     const auto &awning_result = ::precision_plex::global_analyzer().awning_motion_result();
+    const auto &bedroom_result = ::precision_plex::global_analyzer().bedroom_motion_result();
+    const auto &sofa_result = ::precision_plex::global_analyzer().sofa_motion_result();
+    const auto &wardrobe_result = ::precision_plex::global_analyzer().wardrobe_motion_result();
     const bool meaningful_change =
         awning_result.revision != last_awning_motion_revision_ ||
+        bedroom_result.revision != last_bedroom_motion_revision_ ||
+        sofa_result.revision != last_sofa_motion_revision_ ||
+        wardrobe_result.revision != last_wardrobe_motion_revision_ ||
         output_result.revision != last_output_command_revision_ ||
         s.outputs.revision != last_outputs_revision_ ||
         s.telemetry.revision != last_telemetry_revision_ ||
@@ -47,6 +53,9 @@ class PrecisionPlexLinComponent : public Component {
       if (full_snapshot) last_full_snapshot_ms_ = now;
       s.update_health();
       last_awning_motion_revision_ = awning_result.revision;
+      last_bedroom_motion_revision_ = bedroom_result.revision;
+      last_sofa_motion_revision_ = sofa_result.revision;
+      last_wardrobe_motion_revision_ = wardrobe_result.revision;
       last_output_command_revision_ = output_result.revision;
       last_outputs_revision_ = s.outputs.revision;
       last_telemetry_revision_ = s.telemetry.revision;
@@ -90,6 +99,21 @@ class PrecisionPlexLinComponent : public Component {
 
   void awning_motion(const std::string &operation, bool extend, const std::string &request_id, int max_ms) {
     ::precision_plex::global_analyzer().awning_motion(operation, extend, request_id, max_ms);
+  }
+
+  void bedroom_slide_motion(const std::string &operation, bool extend,
+                            const std::string &request_id, int max_ms) {
+    ::precision_plex::global_analyzer().bedroom_slide_motion(operation, extend, request_id, max_ms);
+  }
+
+  void sofa_slide_motion(const std::string &operation, bool extend,
+                         const std::string &request_id, int max_ms) {
+    ::precision_plex::global_analyzer().sofa_slide_motion(operation, extend, request_id, max_ms);
+  }
+
+  void wardrobe_slide_motion(const std::string &operation, bool extend,
+                             const std::string &request_id, int max_ms) {
+    ::precision_plex::global_analyzer().wardrobe_slide_motion(operation, extend, request_id, max_ms);
   }
 
   void start_awning_jog(bool extend) { ::precision_plex::global_analyzer().start_awning_jog(extend); }
@@ -192,9 +216,23 @@ class PrecisionPlexLinComponent : public Component {
     add_string_(out, first, "output_request_status", output_result.status);
 
     const auto &awning_result = ::precision_plex::global_analyzer().awning_motion_result();
+    const auto &bedroom_result = ::precision_plex::global_analyzer().bedroom_motion_result();
+    const auto &sofa_result = ::precision_plex::global_analyzer().sofa_motion_result();
+    const auto &wardrobe_result = ::precision_plex::global_analyzer().wardrobe_motion_result();
     add_bool_(out, first, "awning_motion_capable", true);
     add_string_(out, first, "awning_motion_request", awning_result.request_id);
     add_string_(out, first, "awning_motion_status", awning_result.status);
+    add_bool_(out, first, "bedroom_slide_motion_capable", true);
+    add_string_(out, first, "bedroom_slide_motion_request", bedroom_result.request_id);
+    add_string_(out, first, "bedroom_slide_motion_status", bedroom_result.status);
+
+    add_bool_(out, first, "sofa_slide_motion_capable", true);
+    add_string_(out, first, "sofa_slide_motion_request", sofa_result.request_id);
+    add_string_(out, first, "sofa_slide_motion_status", sofa_result.status);
+
+    add_bool_(out, first, "wardrobe_slide_motion_capable", true);
+    add_string_(out, first, "wardrobe_slide_motion_request", wardrobe_result.request_id);
+    add_string_(out, first, "wardrobe_slide_motion_status", wardrobe_result.status);
 
     // An unchanged snapshot is only a liveness signal. Keep its event payload
     // compact; the Home Assistant integration merges these health fields into
@@ -278,6 +316,9 @@ class PrecisionPlexLinComponent : public Component {
   uint32_t last_full_snapshot_ms_{0};
   uint32_t snapshot_sequence_{0};
   uint32_t last_awning_motion_revision_{0};
+  uint32_t last_bedroom_motion_revision_{0};
+  uint32_t last_sofa_motion_revision_{0};
+  uint32_t last_wardrobe_motion_revision_{0};
   uint32_t last_output_command_revision_{0};
   uint32_t last_outputs_revision_{0};
   uint32_t last_telemetry_revision_{0};
