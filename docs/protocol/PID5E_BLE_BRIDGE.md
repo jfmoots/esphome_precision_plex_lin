@@ -33,6 +33,22 @@ These captures establish the observed command payloads and shared `3F 00`
 release behavior. They support passive state observation, but do not by
 themselves establish a complete safe injection lifecycle for motor controls.
 
+## Observed generator commands
+
+Bluetooth captures on November 25, 2026 showed three consecutive PID5E
+responses per button press, followed by the shared idle response `3F 00 62`.
+
+| Command | Payload | Checksum | PIDBA acceptance and outcome |
+|---|---|---|---|
+| Manual Start | `3E 02` | `61` | Manual Starting, then briefly Running |
+| Manual Stop | `3E 03` | `60` | Manual Stopping, then Idle/Off |
+| AutoStart | `3E 0A` | `59` | Auto Starting, then Running |
+| AutoStop | `3E 0B` | `58` | Auto Stopping, then Idle/Off |
+
+PID32's running bit pulsed during the managed start while the engine was
+quiet. Use the PIDBA state to distinguish acceptance from completion.
+Direct LIN generator transmission awaits coach testing.
+
 ## v0.6.3 observation behavior
 
 The bridge now observes this channel without publishing every repeated frame:
