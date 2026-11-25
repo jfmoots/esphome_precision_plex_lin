@@ -45,7 +45,7 @@ class Analyzer {
 
 
   void queue_pid5e_slot_tx(uint8_t b0, uint8_t b1, const char *label, uint16_t delay_us = 0) {
-    if (!output_command_request_.empty() || awning_phase_ != AwningJogPhase::IDLE) {
+    if (!output_command_request_.empty() || motion_phase_ != MotionPhase::IDLE) {
       ESP_LOGW("LIN_TX", "Ignored diagnostic toggle while a desired-state command is running");
       return;
     }
@@ -79,7 +79,7 @@ class Analyzer {
     }
 
     if (!output_command_request_.empty() || !pid5e_commands_.empty() ||
-        awning_phase_ != AwningJogPhase::IDLE) {
+        motion_phase_ != MotionPhase::IDLE) {
       publish_output_command_(request_id, "busy");
       return;
     }
@@ -103,50 +103,44 @@ class Analyzer {
     if (!pid5e_waiting_for_idle_) arm_pid5e_command_();
   }
 
-  const OutputCommandResult &awning_motion_result() const { return awning_motion_result_; }
+  const OutputCommandResult &awning_motion_result() const { return motion_result_(MotionTarget::AWNING); }
+  const OutputCommandResult &bedroom_motion_result() const { return motion_result_(MotionTarget::BEDROOM); }
+
+  const OutputCommandResult &sofa_motion_result() const { return motion_result_(MotionTarget::SOFA); }
+  const OutputCommandResult &wardrobe_motion_result() const { return motion_result_(MotionTarget::WARDROBE); }
 
   void awning_motion(const std::string &operation, bool extend,
                      const std::string &request_id, int max_ms) {
-    if (request_id.empty() || request_id.size() > 64) return;
-    if (operation == "start") {
-      if (request_id == awning_motion_result_.request_id) return;
-      if (max_ms <= 0 || max_ms > 90000 || !can_start_awning_()) {
-        // Keep the result of an active owner available to its client.
-        if (awning_phase_ == AwningJogPhase::IDLE)
-          publish_awning_motion_(request_id, "refused");
-        return;
-      }
-      publish_awning_motion_(request_id, "armed");
-      awning_max_ms_ = static_cast<uint32_t>(max_ms);
-      awning_five_second_test_ = false;
-      arm_awning_(extend);
-      return;
-    }
-    if (awning_max_ms_ == 0 || request_id != awning_motion_result_.request_id) return;
-    if (operation == "renew" &&
-        (awning_phase_ == AwningJogPhase::START || awning_phase_ == AwningJogPhase::HOLD)) {
-      awning_renewed_ms_ = millis();
-    } else if (operation == "stop") {
-      stop_awning_jog();
-    }
+    request_motion_(MotionTarget::AWNING, operation, extend, request_id, max_ms);
+  }
+
+  void bedroom_slide_motion(const std::string &operation, bool extend,
+                            const std::string &request_id, int max_ms) {
+    request_motion_(MotionTarget::BEDROOM, operation, extend, request_id, max_ms);
+  }
+
+  void sofa_slide_motion(const std::string &operation, bool extend,
+                         const std::string &request_id, int max_ms) {
+    request_motion_(MotionTarget::SOFA, operation, extend, request_id, max_ms);
+  }
+
+  void wardrobe_slide_motion(const std::string &operation, bool extend,
+                             const std::string &request_id, int max_ms) {
+    request_motion_(MotionTarget::WARDROBE, operation, extend, request_id, max_ms);
   }
 
   void start_awning_jog(bool extend, bool five_second_test = false) {
-    if (!can_start_awning_()) {
+    if (!can_start_motion_(MotionTarget::AWNING)) {
       ESP_LOGW("LIN_AWNING", "Jog refused: busy, unsafe or stale coach state");
       return;
     }
-    awning_max_ms_ = 0;
+    motion_max_ms_ = 0;
     awning_five_second_test_ = five_second_test;
-    arm_awning_(extend);
+    arm_motion_(MotionTarget::AWNING, extend);
   }
 
   void stop_awning_jog() {
-    if (awning_phase_ == AwningJogPhase::START) {
-      finish_awning_jog_("canceled before transmitting", "canceled");
-    } else if (awning_phase_ == AwningJogPhase::HOLD || awning_phase_ == AwningJogPhase::RELEASE) {
-      release_awning_("stopped");
-    }
+    if (motion_target_ == MotionTarget::AWNING) stop_motion_();
   }
 
   void trigger_flight_recorder(const char *label, uint32_t duration_ms = 10000) {
@@ -169,7 +163,7 @@ class Analyzer {
   }
 
   void process(esphome::uart::UARTComponent *uart) {
-    expire_awning_jog_();
+    expire_motion_();
     expire_output_command_();
     expire_pid5e_command_();
     while (uart->available()) {
@@ -336,158 +330,239 @@ class Analyzer {
   esphome::HighFrequencyLoopRequester pid5e_fast_loop_;
   uint32_t pid5e_phase_started_ms_ = 0;
   bool pid5e_waiting_for_idle_ = false;
-  enum class AwningJogPhase { IDLE, START, HOLD, RELEASE, VERIFY };
-  AwningJogPhase awning_phase_ = AwningJogPhase::IDLE;
-  bool awning_extend_ = false;
+  enum class MotionTarget { AWNING, BEDROOM, SOFA, WARDROBE, COUNT };
+  MotionTarget motion_target_ = MotionTarget::AWNING;
+  enum class MotionPhase { IDLE, START, HOLD, RELEASE, VERIFY };
+  MotionPhase motion_phase_ = MotionPhase::IDLE;
+  bool motion_extend_ = false;
   bool awning_five_second_test_ = false;
-  uint8_t awning_hold_slots_ = 0;
-  bool awning_motion_observed_ = false;
-  bool awning_jog_locked_ = false;
-  uint32_t awning_started_ms_ = 0;
-  uint32_t awning_release_ms_ = 0;
-  uint32_t awning_max_ms_ = 0;
-  uint32_t awning_renewed_ms_ = 0;
-  const char *awning_stop_status_ = "stopped";
-  OutputCommandResult awning_motion_result_;
+  uint16_t motion_hold_slots_ = 0;
+  bool motion_observed_ = false;
+  bool motion_locked_ = false;
+  uint32_t motion_started_ms_ = 0;
+  uint32_t motion_release_ms_ = 0;
+  uint32_t motion_max_ms_ = 0;
+  uint32_t motion_renewed_ms_ = 0;
+  const char *motion_stop_status_ = "stopped";
+  struct MotionDefinition {
+    bool OutputState::*extend;
+    bool OutputState::*retract;
+    uint8_t extend_opcode;
+    uint8_t retract_opcode;
+    const char *log_tag;
+  };
+  static constexpr size_t MOTION_TARGET_COUNT = static_cast<size_t>(MotionTarget::COUNT);
+  static constexpr MotionDefinition MOTION_TARGETS[MOTION_TARGET_COUNT] = {
+      {&OutputState::awning_extend, &OutputState::awning_retract, 0x0A, 0x09, "LIN_AWNING"},
+      {&OutputState::bedroom_slide_extend, &OutputState::bedroom_slide_retract, 0x14, 0x13, "LIN_BEDROOM"},
+      {&OutputState::sofa_extend, &OutputState::sofa_retract, 0x10, 0x0F, "LIN_SOFA"},
+      {&OutputState::wardrobe_slide_extend, &OutputState::wardrobe_slide_retract, 0x12, 0x11, "LIN_WARDROBE"},
+  };
+  OutputCommandResult motion_results_[MOTION_TARGET_COUNT];
 
-  bool can_start_awning_() const {
-    const auto &out = coach_state().outputs;
-    return !awning_jog_locked_ && awning_phase_ == AwningJogPhase::IDLE &&
-        !pid5e_waiting_for_idle_ && !wireless_tp_mute_asserted_ &&
-        !pending_slot_tx_ && pid5e_commands_.empty() && output_command_request_.empty() &&
-        awning_inputs_safe_() && !out.awning_extend && !out.awning_retract;
+  OutputCommandResult &motion_result_(MotionTarget target) {
+    return motion_results_[static_cast<size_t>(target)];
   }
 
-  void arm_awning_(bool extend) {
-    awning_extend_ = extend;
-    awning_motion_observed_ = false;
-    awning_hold_slots_ = 0;
-    awning_started_ms_ = awning_renewed_ms_ = millis();
-    awning_phase_ = AwningJogPhase::START;
-    awning_stop_status_ = "stopped";
+  const OutputCommandResult &motion_result_(MotionTarget target) const {
+    return motion_results_[static_cast<size_t>(target)];
+  }
+
+  const char *motion_tag_() const {
+    return MOTION_TARGETS[static_cast<size_t>(motion_target_)].log_tag;
+  }
+
+  bool moving_(MotionTarget target, bool extend) const {
+    const auto &definition = MOTION_TARGETS[static_cast<size_t>(target)];
+    return coach_state().outputs.*(extend ? definition.extend : definition.retract);
+  }
+
+  void request_motion_(MotionTarget target, const std::string &operation, bool extend,
+                       const std::string &request_id, int max_ms) {
+    if (request_id.empty() || request_id.size() > 64) return;
+    auto &result = motion_result_(target);
+    if (operation == "start") {
+      if (request_id == result.request_id) return;
+      if (max_ms <= 0 || max_ms > 90000 || !can_start_motion_(target)) {
+        // Preserve the current owner's acknowledgement while a request is active.
+        if (motion_phase_ == MotionPhase::IDLE || target != motion_target_)
+          publish_motion_(result, request_id, "refused");
+        return;
+      }
+      publish_motion_(result, request_id, "armed");
+      motion_max_ms_ = static_cast<uint32_t>(max_ms);
+      awning_five_second_test_ = false;
+      arm_motion_(target, extend);
+      return;
+    }
+    if (motion_max_ms_ == 0 || target != motion_target_ || request_id != result.request_id) return;
+    if (operation == "renew" &&
+        (motion_phase_ == MotionPhase::START || motion_phase_ == MotionPhase::HOLD)) {
+      motion_renewed_ms_ = millis();
+    } else if (operation == "stop") {
+      stop_motion_();
+    }
+  }
+
+  void stop_motion_() {
+    if (motion_phase_ == MotionPhase::START) {
+      finish_motion_("canceled before transmitting", "canceled");
+    } else if (motion_phase_ == MotionPhase::HOLD || motion_phase_ == MotionPhase::RELEASE) {
+      release_motion_("stopped");
+    }
+  }
+
+  bool can_start_motion_(MotionTarget target) const {
+    return !motion_locked_ && motion_phase_ == MotionPhase::IDLE &&
+        !pid5e_waiting_for_idle_ && !wireless_tp_mute_asserted_ &&
+        !pending_slot_tx_ && pid5e_commands_.empty() && output_command_request_.empty() &&
+        motion_inputs_safe_(target) && !moving_(target, true) && !moving_(target, false);
+  }
+
+  void arm_motion_(MotionTarget target, bool extend) {
+    motion_target_ = target;
+    motion_extend_ = extend;
+    motion_observed_ = false;
+    motion_hold_slots_ = 0;
+    motion_started_ms_ = motion_renewed_ms_ = millis();
+    motion_phase_ = MotionPhase::START;
+    motion_stop_status_ = "stopped";
     pid5e_fast_loop_.start();
-    assert_wireless_tp_mute_("awning motion");
-    ESP_LOGI("LIN_AWNING", "%s %s armed", awning_max_ms_ ? "Leased" : "Bounded jog",
+    assert_wireless_tp_mute_("cover motion");
+    ESP_LOGI(motion_tag_(), "%s %s armed", motion_max_ms_ ? "Leased" : "Bounded jog",
              extend ? "extend" : "retract");
   }
 
-  void publish_awning_motion_(const std::string &request_id, const char *status) {
-    awning_motion_result_.request_id = request_id;
-    awning_motion_result_.status = status;
-    awning_motion_result_.revision++;
+  void publish_motion_(OutputCommandResult &result, const std::string &request_id,
+                      const char *status) {
+    result.request_id = request_id;
+    result.status = status;
+    result.revision++;
   }
 
-  void release_awning_(const char *status) {
-    if (awning_phase_ == AwningJogPhase::RELEASE) return;
-    awning_stop_status_ = status;
-    awning_release_ms_ = millis();
-    awning_phase_ = AwningJogPhase::RELEASE;
+  void release_motion_(const char *status) {
+    if (motion_phase_ == MotionPhase::RELEASE) return;
+    motion_stop_status_ = status;
+    motion_release_ms_ = millis();
+    motion_phase_ = MotionPhase::RELEASE;
   }
 
-  bool awning_inputs_safe_() const {
+  bool motion_inputs_safe_(MotionTarget target) const {
     const auto &state = coach_state();
     const auto &out = state.outputs;
     const uint32_t now = millis();
-    return out.valid && state.power.valid && !state.power.ignition_on &&
-        now - out.last_seen_ms <= 250 && now - state.power.last_seen_ms <= 500 &&
-        !out.sofa_extend && !out.sofa_retract && !out.bedroom_slide_extend &&
-        !out.bedroom_slide_retract && !out.wardrobe_slide_extend &&
-        !out.wardrobe_slide_retract;
-  }
-
-  void finish_awning_jog_(const char *result, const char *status) {
-    if (wireless_tp_mute_asserted_) release_wireless_tp_mute_("awning motion finished");
-    pid5e_fast_loop_.stop();
-    awning_phase_ = AwningJogPhase::IDLE;
-    if (awning_max_ms_) publish_awning_motion_(awning_motion_result_.request_id, status);
-    awning_max_ms_ = 0;
-    ESP_LOGI("LIN_AWNING", "Awning result: %s", result);
-  }
-
-  void expire_awning_jog_() {
-    const uint32_t now = millis();
-    const uint32_t age = now - awning_started_ms_;
-    if (awning_phase_ == AwningJogPhase::START && age >= 400)
-      finish_awning_jog_("no start slot; no motion command transmitted", "not_sent");
-    if (awning_phase_ == AwningJogPhase::HOLD) {
-      const uint32_t jog_limit = awning_five_second_test_ ? 5000 : 350;
-      if (!awning_max_ms_ && age >= jog_limit) {
-        release_awning_("stopped");
-        awning_release_ms_ = awning_started_ms_ + jog_limit;
-      }
-      if (awning_max_ms_ && age >= awning_max_ms_) release_awning_("duration_complete");
-      if (awning_max_ms_ && now - awning_renewed_ms_ >= 800) release_awning_("lease_expired");
-      if (awning_max_ms_ && !awning_motion_observed_ && age >= 350) release_awning_("no_motion");
-      if (!awning_inputs_safe_()) release_awning_("unsafe");
+    if (!out.valid || !state.power.valid || state.power.ignition_on ||
+        now - out.last_seen_ms > 250 || now - state.power.last_seen_ms > 500) return false;
+    for (size_t index = 0; index < MOTION_TARGET_COUNT; ++index) {
+      const auto other = static_cast<MotionTarget>(index);
+      if (other != target && (moving_(other, true) || moving_(other, false))) return false;
     }
-    if (awning_phase_ == AwningJogPhase::RELEASE && now - awning_release_ms_ >= 350) {
-      awning_jog_locked_ = true;
-      finish_awning_jog_("release slot missed; use factory control and verify stop", "stop_unconfirmed");
-    }
-    if (awning_phase_ == AwningJogPhase::VERIFY && now - awning_release_ms_ >= 450) {
-      awning_jog_locked_ = true;
-      finish_awning_jog_("stop not confirmed by PID32; use factory control", "stop_unconfirmed");
-    }
-  }
-
-  bool send_awning_jog_slot_(esphome::uart::UARTComponent *uart) {
-    // Check the deadline again at the actual transmit slot.
-    expire_awning_jog_();
-    if (awning_phase_ == AwningJogPhase::IDLE || awning_phase_ == AwningJogPhase::VERIFY)
-      return false;
-    const auto &out = coach_state().outputs;
-    const bool opposite = awning_extend_ ? out.awning_retract : out.awning_extend;
-    if (awning_phase_ == AwningJogPhase::START &&
-        (!awning_inputs_safe_() || out.awning_extend || out.awning_retract)) {
-      finish_awning_jog_("unsafe or stale coach state before start; no motion command transmitted", "refused");
-      return false;
-    }
-    if (awning_phase_ == AwningJogPhase::HOLD && (!awning_inputs_safe_() || opposite))
-      release_awning_("unsafe");
-
-    const auto phase = awning_phase_;
-    uint8_t opcode = awning_extend_ ? 0x0A : 0x09;
-    if (phase == AwningJogPhase::HOLD) opcode |= 0x40;
-    if (phase == AwningJogPhase::RELEASE) opcode = awning_extend_ ? 0x3F : 0x09;
-    const uint8_t response[] = {opcode, 0, classic_checksum_(0x5E, opcode, 0)};
-    uart->write_array(response, sizeof(response));
-    uart->flush();
-    if (phase == AwningJogPhase::START) {
-      awning_phase_ = AwningJogPhase::HOLD;
-      awning_started_ms_ = millis();
-    } else if (phase == AwningJogPhase::HOLD) {
-      ++awning_hold_slots_;
-      if (!awning_max_ms_ && !awning_five_second_test_ &&
-          awning_hold_slots_ >= (awning_extend_ ? 1 : 3)) release_awning_("stopped");
-    } else {
-      delayMicroseconds(100);
-      release_wireless_tp_mute_("awning release sent");
-      awning_release_ms_ = millis();
-      awning_phase_ = AwningJogPhase::VERIFY;
-    }
-    if (phase != AwningJogPhase::HOLD || awning_hold_slots_ == 1 ||
-        (!awning_max_ms_ && !awning_five_second_test_))
-      ESP_LOGI("LIN_AWNING", "TX %02X 00 %02X", opcode, response[2]);
     return true;
   }
 
-  void observe_awning_jog_pid32_() {
-    const auto &out = coach_state().outputs;
-    if (awning_phase_ == AwningJogPhase::HOLD || awning_phase_ == AwningJogPhase::RELEASE) {
-      const bool moving = awning_extend_ ? out.awning_extend : out.awning_retract;
-      if (moving && !awning_motion_observed_) {
-        awning_motion_observed_ = true;
-        if (awning_max_ms_ && awning_phase_ == AwningJogPhase::HOLD)
-          publish_awning_motion_(awning_motion_result_.request_id, "moving");
+  void finish_motion_(const char *result, const char *status) {
+    if (wireless_tp_mute_asserted_) release_wireless_tp_mute_("awning motion finished");
+    pid5e_fast_loop_.stop();
+    motion_phase_ = MotionPhase::IDLE;
+    if (motion_max_ms_) {
+      auto &owner = motion_result_(motion_target_);
+      publish_motion_(owner, owner.request_id, status);
+    }
+    motion_max_ms_ = 0;
+    ESP_LOGI(motion_tag_(), "Motion result: %s", result);
+  }
+
+  void expire_motion_() {
+    const uint32_t now = millis();
+    const uint32_t age = now - motion_started_ms_;
+    if (motion_phase_ == MotionPhase::START && age >= 400) {
+      const bool safe = motion_inputs_safe_(motion_target_) &&
+          !moving_(motion_target_, true) && !moving_(motion_target_, false);
+      finish_motion_("no start slot; no motion command transmitted", safe ? "not_sent" : "refused");
+    }
+    if (motion_phase_ == MotionPhase::HOLD) {
+      const uint32_t jog_limit = awning_five_second_test_ ? 5000 : 350;
+      if (!motion_max_ms_ && age >= jog_limit) {
+        release_motion_("stopped");
+        motion_release_ms_ = motion_started_ms_ + jog_limit;
       }
-      if (!moving && awning_motion_observed_ && (awning_max_ms_ || awning_five_second_test_))
-        release_awning_("motion_ended");
-    } else if (awning_phase_ == AwningJogPhase::VERIFY && !out.awning_extend && !out.awning_retract) {
-      const bool ended_without_motion = !awning_motion_observed_ &&
-          std::strcmp(awning_stop_status_, "duration_complete") == 0;
-      finish_awning_jog_(awning_motion_observed_ ? "motion and stop confirmed by PID32"
+      if (motion_max_ms_ && age >= motion_max_ms_) release_motion_("duration_complete");
+      if (motion_max_ms_ && now - motion_renewed_ms_ >= 800) release_motion_("lease_expired");
+      if (motion_max_ms_ && !motion_observed_ && age >= 350) release_motion_("no_motion");
+      if (!motion_inputs_safe_(motion_target_)) release_motion_("unsafe");
+    }
+    if (motion_phase_ == MotionPhase::RELEASE && now - motion_release_ms_ >= 350) {
+      motion_locked_ = true;
+      finish_motion_("release slot missed; use factory control and verify stop", "stop_unconfirmed");
+    }
+    if (motion_phase_ == MotionPhase::VERIFY && now - motion_release_ms_ >= 450) {
+      motion_locked_ = true;
+      finish_motion_("stop not confirmed by PID32; use factory control", "stop_unconfirmed");
+    }
+  }
+
+  bool send_motion_slot_(esphome::uart::UARTComponent *uart) {
+    // Check the deadline again at the actual transmit slot.
+    expire_motion_();
+    if (motion_phase_ == MotionPhase::IDLE || motion_phase_ == MotionPhase::VERIFY)
+      return false;
+    const bool opposite = moving_(motion_target_, !motion_extend_);
+    if (motion_phase_ == MotionPhase::START &&
+        (!motion_inputs_safe_(motion_target_) || opposite || moving_(motion_target_, motion_extend_))) {
+      finish_motion_("unsafe or stale coach state before start; no motion command transmitted", "refused");
+      return false;
+    }
+    if (motion_phase_ == MotionPhase::HOLD && (!motion_inputs_safe_(motion_target_) || opposite))
+      release_motion_("unsafe");
+
+    const auto phase = motion_phase_;
+    const auto &definition = MOTION_TARGETS[static_cast<size_t>(motion_target_)];
+    uint8_t opcode = motion_extend_ ? definition.extend_opcode : definition.retract_opcode;
+    if (phase == MotionPhase::HOLD) opcode |= 0x40;
+    if (phase == MotionPhase::RELEASE) {
+      opcode = motion_target_ == MotionTarget::AWNING && !motion_extend_ ? 0x09 : 0x3F;
+    }
+    const uint8_t response[] = {opcode, 0, classic_checksum_(0x5E, opcode, 0)};
+    uart->write_array(response, sizeof(response));
+    uart->flush();
+    if (phase == MotionPhase::START) {
+      motion_phase_ = MotionPhase::HOLD;
+      motion_started_ms_ = millis();
+    } else if (phase == MotionPhase::HOLD) {
+      ++motion_hold_slots_;
+      if (!motion_max_ms_ && !awning_five_second_test_ &&
+          motion_hold_slots_ >= (motion_extend_ ? 1 : 3)) release_motion_("stopped");
+    } else {
+      delayMicroseconds(100);
+      release_wireless_tp_mute_("cover release sent");
+      motion_release_ms_ = millis();
+      motion_phase_ = MotionPhase::VERIFY;
+    }
+    if (phase != MotionPhase::HOLD || motion_hold_slots_ == 1 ||
+        (!motion_max_ms_ && !awning_five_second_test_))
+      ESP_LOGI(motion_tag_(), "TX %02X 00 %02X", opcode, response[2]);
+    return true;
+  }
+
+  void observe_motion_pid32_() {
+    if (motion_phase_ == MotionPhase::HOLD || motion_phase_ == MotionPhase::RELEASE) {
+      const bool moving = moving_(motion_target_, motion_extend_);
+      if (moving && !motion_observed_) {
+        motion_observed_ = true;
+        if (motion_max_ms_ && motion_phase_ == MotionPhase::HOLD) {
+          auto &result = motion_result_(motion_target_);
+          publish_motion_(result, result.request_id, "moving");
+        }
+      }
+      if (!moving && motion_observed_ && (motion_max_ms_ || awning_five_second_test_))
+        release_motion_("motion_ended");
+    } else if (motion_phase_ == MotionPhase::VERIFY &&
+               !moving_(motion_target_, true) && !moving_(motion_target_, false)) {
+      const bool ended_without_motion = !motion_observed_ &&
+          std::strcmp(motion_stop_status_, "duration_complete") == 0;
+      finish_motion_(motion_observed_ ? "motion and stop confirmed by PID32"
                                                 : "idle confirmed; motion not observed",
-                         ended_without_motion ? "no_motion" : awning_stop_status_);
+                         ended_without_motion ? "no_motion" : motion_stop_status_);
     }
   }
 
@@ -550,7 +625,7 @@ class Analyzer {
   }
 
   void expire_pid5e_command_() {
-    if (awning_phase_ != AwningJogPhase::IDLE ||
+    if (motion_phase_ != MotionPhase::IDLE ||
         (!wireless_tp_mute_asserted_ && !pid5e_waiting_for_idle_) ||
         millis() - pid5e_phase_started_ms_ < 3000) return;
 
@@ -766,7 +841,7 @@ class Analyzer {
     stream_prev1_ = current_byte;
 
     if (!wireless_tp_mute_asserted_ || !header_seen || uart->available()) return false;
-    if (awning_phase_ != AwningJogPhase::IDLE) return send_awning_jog_slot_(uart);
+    if (motion_phase_ != MotionPhase::IDLE) return send_motion_slot_(uart);
     if (pid5e_commands_.empty()) return false;
 
     const bool desired_output = !output_command_request_.empty() && !output_command_sent_;
@@ -887,7 +962,7 @@ class Analyzer {
   }
 
   void dump_flight_chunk_() {
-    if (flight_recorder_active_ || awning_phase_ != AwningJogPhase::IDLE || wireless_tp_mute_asserted_ ||
+    if (flight_recorder_active_ || motion_phase_ != MotionPhase::IDLE || wireless_tp_mute_asserted_ ||
         flight_dump_index_ >= flight_recorder_frames_.size()) return;
     const uint32_t now = millis();
     if (now - last_flight_dump_ms_ < 20) return;
@@ -954,7 +1029,7 @@ class Analyzer {
     switch (f.pid) {
       case 0x32:
         pid32_.decode(f);
-        observe_awning_jog_pid32_();
+        observe_motion_pid32_();
         if (output_command_sent_ && !output_command_request_.empty() &&
             output_for_opcode_(output_command_opcode_) == output_command_desired_) {
           finish_output_command_("confirmed");
