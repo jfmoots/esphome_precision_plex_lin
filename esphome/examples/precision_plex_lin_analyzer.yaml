@@ -1,5 +1,5 @@
 substitutions:
-  firmware_version: "lin-telemetry-v0.6.7-build013.9-slide-motion"
+  firmware_version: "lin-telemetry-v0.6.8-build014.0-generator-control"
   lin_bridge_id: "esphome-web-055454"
 
 esphome:
@@ -26,6 +26,12 @@ logger:
 
 api:
   actions:
+    - action: precision_plex_generator_command
+      variables:
+        command_key: string
+        request_id: string
+      then:
+        - lambda: id(lin_bridge).generator_command(command_key, request_id);
     - action: precision_plex_bedroom_slide_motion
       variables:
         operation: string
@@ -78,7 +84,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/jfmoots/esphome_precision_plex_lin
-      ref: v0.6.7
+      ref: v0.6.8
       path: esphome/components
     components:
       - precision_plex_lin
