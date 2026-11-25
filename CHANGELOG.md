@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.6.8 - LIN Generator Control
+
+- Adds PID5E commands for manual Start and Stop and managed AutoStart and AutoStop.
+- Acknowledges generator commands with fresh PIDBA state and publishes the result to Home Assistant.
+- Adds the native generator action to the example. Pairs with Precision Plex integration v5.5.19.
+
 ## v0.6.7 - Leased Slide Control
 
 - Adds leased LIN motion for the bedroom, sofa, and wardrobe slides.
